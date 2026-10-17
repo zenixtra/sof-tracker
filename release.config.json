@@ -1,7 +1,7 @@
 {
-  "repo": "Levent/sof-tracker",
-  "manifestUrl": "https://raw.githubusercontent.com/Levent/sof-tracker/main/updates/update.json",
-  "releasesPage": "https://github.com/Levent/sof-tracker/releases",
+  "repo": "zenixtra/sof-tracker",
+  "manifestUrl": "https://raw.githubusercontent.com/zenixtra/sof-tracker/main/updates/update.json",
+  "releasesPage": "https://github.com/zenixtra/sof-tracker/releases",
   "publicKeys": [
     {
       "id": "1c994b96da57756b",
