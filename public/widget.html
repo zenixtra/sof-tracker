@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SoF Widget</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+<script src="/i18n-dict.js"></script>
+<script src="/i18n.js"></script>
+<script src="/update-gate.js"></script>
+<style>
+  /* an OBS browser source: transparent, big, readable over any game scene */
+  :root { --text: #fff; --muted: #e2dccd; --gold: #f0c35a; --crimson: #e0574a; --sky: #6aa7e0; --track: rgba(0,0,0,.45); }
+  html, body { margin: 0; background: transparent; color: var(--text); font: 600 20px/1.25 Inter, system-ui, sans-serif; overflow: hidden; }
+  body { padding: 8px 10px; text-shadow: 0 1px 3px #000, 0 0 8px rgba(0,0,0,.8); }
+  .lbl { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .v { font: 700 30px/1.1 "JetBrains Mono", monospace; }
+  .sub { font-size: 14px; color: var(--muted); }
+  .gauge { height: 10px; border-radius: 5px; background: var(--track); overflow: hidden; margin: 4px 0; box-shadow: 0 1px 3px rgba(0,0,0,.6); }
+  .gauge i { display: block; height: 100%; background: var(--crimson); border-radius: 5px; transition: width .4s; }
+  .gauge.mp i { background: var(--sky); } .gauge.gold i { background: var(--gold); }
+</style>
+</head>
+<body><div id="w"></div>
+<script>
+// /widget?show=exph | kills | drop | hp | goal | level
+const show = new URLSearchParams(location.search).get('show') || 'exph';
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pct = (a, b) => (a != null && b ? Math.round((a / b) * 100) : 0);
+function render(S) {
+  const sc = S.screen || {};
+  const html = {
+    exph: () => `<div class="lbl">${t('EXP per hour')}</div><div class="v">${sc.expPerHour != null ? `${sc.expPerHour.toFixed(1)}%` : '—'}</div><div class="sub">${sc.exp != null ? `EXP ${sc.exp.toFixed(2)}%` : ''}</div>`,
+    kills: () => `<div class="lbl">${t('Kills this session')}</div><div class="v">${sc.sessionKills ?? 0}</div><div class="sub">${sc.sessionExp ? `EXP +${sc.sessionExp.toFixed(1)}%` : ''}</div>`,
+    drop: () => (sc.lastDrop ? `<div class="lbl">${t('Last drop')}</div><div class="v" style="font-size:22px">${esc(sc.lastDrop.item)}</div><div class="sub">${esc(sc.lastDrop.who)}</div>` : ''),
+    hp: () => (sc.hp != null ? `<div class="lbl">HP ${sc.hp} / ${sc.hpMax}</div><div class="gauge"><i style="width:${pct(sc.hp, sc.hpMax)}%"></i></div>${sc.mp != null ? `<div class="gauge mp"><i style="width:${pct(sc.mp, sc.mpMax)}%"></i></div>` : ''}` : ''),
+    goal: () => (S.expGoal ? `<div class="lbl">${t('EXP goal today')}</div><div class="v">+${S.expGoal.today.toFixed(1)}% <span class="sub">/ ${S.expGoal.goal}%</span></div><div class="gauge gold"><i style="width:${S.expGoal.pct}%"></i></div>${S.expGoal.streak > 1 ? `<div class="sub">${t('{n} days in a row', { n: S.expGoal.streak })}</div>` : ''}` : ''),
+    // the next level: how far along, and the play time left at your own pace
+    level: () => { const c = (S.countdowns || []).find((x) => x.kind === 'level'); if (!c) return ''; const m = c.playMs ? Math.round(c.playMs / 60000) : null;
+      return `<div class="lbl">${esc(c.n ? t('Level {n}', { n: c.n }) : t('Next level'))}</div><div class="v">${m != null ? `~${m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m` : `${m}m`}` : `${(100 - parseFloat(c.left)).toFixed(1)}%`}</div><div class="gauge gold"><i style="width:${c.pct}%"></i></div><div class="sub">${esc(t('{p} to go', { p: c.left }))}</div>`; },
+  }[show];
+  $('w').innerHTML = html ? html() : `<div class="sub">show=exph | kills | drop | hp | goal | level</div>`;
+}
+startI18n();
+const es = new EventSource('/events');
+es.onmessage = (e) => { const S = JSON.parse(e.data); if (SofGate.onState(S)) return; if (S.settings?.lang && S.settings.lang !== getLang()) setLang(S.settings.lang); render(S); };
+</script>
+</body>
+</html>

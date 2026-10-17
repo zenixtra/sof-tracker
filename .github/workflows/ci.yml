@@ -1,0 +1,19 @@
+# Runs the checks and tests on every push and pull request (free for public repositories).
+name: CI
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: node scripts/check.js
+      - name: Build the setup (not published)
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File installer/build.ps1

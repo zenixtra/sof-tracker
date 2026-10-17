@@ -1,0 +1,17 @@
+{
+  "repo": "Levent/sof-tracker",
+  "manifestUrl": "https://raw.githubusercontent.com/Levent/sof-tracker/main/updates/update.json",
+  "releasesPage": "https://github.com/Levent/sof-tracker/releases",
+  "publicKeys": [
+    {
+      "id": "1c994b96da57756b",
+      "pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA6D3D4N7tdGm7nn9Xzdd/3U5DR6qOzjgqqBpX32cQddQ=\n-----END PUBLIC KEY-----\n"
+    }
+  ],
+  "downloadHosts": [
+    "github.com",
+    "objects.githubusercontent.com",
+    "release-assets.githubusercontent.com",
+    "github-releases.githubusercontent.com"
+  ]
+}

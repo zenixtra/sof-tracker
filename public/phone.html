@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e0f13">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/icon-180.png">
+<title>SoF Phone</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
+<script src="/i18n-dict.js"></script>
+<script src="/i18n.js"></script>
+<script src="/update-gate.js"></script>
+<style>
+  :root { --bg: #0e0f13; --panel: #16181f; --line: #2a2e3a; --text: #e6e3da; --muted: #8d8a80; --gold: #d6a84a; --jade: #4fbf9a; --crimson: #d4574b; --sky: #6aa7e0; }
+  @media (prefers-color-scheme: light) { :root { --bg: #f4efe4; --panel: #fffaf0; --line: #e0d6c2; --text: #2b2418; --muted: #7a705e; --gold: #a87a1e; } }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 Inter, system-ui, sans-serif; }
+  body { padding: max(12px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); max-width: 640px; margin: 0 auto; }
+  header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
+  header b { font-size: 17px; }
+  .muted { color: var(--muted); }
+  .mono { font-family: "JetBrains Mono", monospace; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--crimson); margin-right: 6px; }
+  .dot.on { background: var(--jade); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+  .card h2 { margin: 0 0 8px; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .row { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+  .gauge { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; margin: 4px 0 8px; }
+  .gauge i { display: block; height: 100%; background: var(--crimson); border-radius: 4px; }
+  .gauge.mp i { background: var(--sky); } .gauge.exp i { background: var(--gold); }
+  .low { color: var(--crimson); font-weight: 600; }
+  .danger { background: #3a1512; color: #ffb4aa; border-color: #6b2620; font-weight: 600; }
+  img.shot { display: block; width: 100%; height: auto; border-radius: 6px; background: #000; }
+  .alert { padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .alert:last-child { border-bottom: 0; }
+  .alert.whisper b { color: var(--gold); }
+  .alert small { display: block; color: var(--muted); }
+  a { color: var(--sky); }
+  .tick { padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .tick:last-child { border-bottom: 0; }
+  .tick input { width: 20px; height: 20px; vertical-align: -4px; margin: 0 6px 0 0; }
+  .pm { min-width: 34px; min-height: 30px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; }
+  .trip { margin: 8px 0 0; padding-left: 22px; font-size: 14px; display: grid; gap: 4px; }
+  #qt .row { padding: 4px 0; }
+</style>
+</head>
+<body>
+  <header><span id="who"><span class="dot"></span>Connecting…</span><a href="/" class="muted" style="font-size:13px">Full dashboard</a></header>
+  <div class="card danger" id="danger" style="display:none"></div>
+  <div class="card" id="hpCard" style="display:none"><h2>You</h2><div id="hp"></div></div>
+  <div class="card" id="partyCard" style="display:none"><h2>Party</h2><div id="party"></div></div>
+  <div class="card" id="shotCard" style="display:none"><h2 class="row"><span>Game screen</span><span class="muted" id="shotAt" style="text-transform:none;letter-spacing:0"></span></h2><img class="shot" id="shot" alt=""></div>
+  <div class="card" id="cdCard" style="display:none"><h2>Goals</h2><div id="cds"></div></div>
+  <div class="card"><h2>Alerts</h2><div id="alerts"><span class="muted">None yet.</span></div></div>
+  <div class="card"><h2>Next timer</h2><div id="timer" class="muted">—</div></div>
+  <div class="card" id="upCard" style="display:none"><h2>Coming up</h2><div id="up"></div></div>
+  <div class="card" id="clCard" style="display:none"><h2>Checklist</h2><div id="cl"></div></div>
+  <div class="card" id="qtCard" style="display:none"><h2>Quest trip</h2><div id="qt"></div></div>
+  <div class="card" id="ggCard" style="display:none"><h2>Gear goals</h2><div id="gg"></div></div>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// the next stop of your quest trip: "⛏ Zombie Cat sample (Zombie Cat) 7/20 · Tiger Valley  ~13 kills"
+const questNextLine = (q, cls) => (q ? `<div class="${cls}"><span>${q.kind === 'collect' ? '⛏' : '💬'} ${esc(q.label)}${q.picked != null ? ` ${q.picked}/${q.need}` : ''} <span class="muted">· ${esc(q.zoneName || '')}</span></span><span class="mono">${q.killsLeft ? `~${q.killsLeft} ${t('kills')}${q.minutesLeft ? ` · ${q.minutesLeft}m` : ''}` : q.kind === 'collect' ? '' : t(q.kind === 'handin' ? 'hand in' : 'talk')}</span></div>` : '');
+const pct = (a, b) => (a != null && b ? Math.round((a / b) * 100) : 0);
+const clock = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+let S = null, off = 0;
+
+function render() {
+  if (!S) return;
+  const s = S.session, sc = S.screen, zn = (z) => S.labels?.zones?.[z] || `Zone ${z}`;
+  $('who').innerHTML = `<span class="dot ${S.game.running ? 'on' : ''}"></span><b>${esc(s.character || t('Game not running'))}</b>${s.position ? ` <span class="muted">· ${esc(zn(s.position.zone))}</span>` : ''}`;
+  const dg = S.danger || {};
+  $('danger').style.display = dg.enemies ? 'block' : 'none';
+  $('danger').textContent = `⚠ ${dg.enemies === 1 ? t('1 enemy nearby') : t('{n} enemies nearby', { n: dg.enemies })}`;
+  const on = !!sc && S.game.running && sc.hp != null;
+  $('hpCard').style.display = on ? 'block' : 'none';
+  if (on) $('hp').innerHTML = `<div class="row"><span>HP</span><span class="mono ${pct(sc.hp, sc.hpMax) < 30 ? 'low' : ''}">${sc.hp} / ${sc.hpMax}</span></div><div class="gauge"><i style="width:${pct(sc.hp, sc.hpMax)}%"></i></div>`
+    + (sc.mp != null ? `<div class="row"><span>MP</span><span class="mono">${sc.mp} / ${sc.mpMax}</span></div><div class="gauge mp"><i style="width:${pct(sc.mp, sc.mpMax)}%"></i></div>` : '')
+    + (sc.exp != null ? `<div class="row"><span>EXP</span><span class="mono">${sc.exp.toFixed(2)}%${sc.expPerHour ? ` · ${sc.expPerHour.toFixed(1)}%/h` : ''}</span></div><div class="gauge exp"><i style="width:${sc.exp}%"></i></div>` : '')
+    + `<div class="muted" style="font-size:13px">${t('{n} kills', { n: sc.kills ?? 0 })} · ${t('{n} deaths', { n: sc.deaths ?? 0 })}</div>`;
+  const party = on ? sc.party || [] : [];
+  $('partyCard').style.display = party.length ? 'block' : 'none';
+  $('party').innerHTML = party.map((p) => `<div class="row"><span>${esc(p.name)}</span><span class="mono ${p.hp < 30 ? 'low' : ''}">${p.hp ? `${p.hp}%` : '✝'}</span></div><div class="gauge"><i style="width:${p.hp}%"></i></div>`).join('');
+  $('shotCard').style.display = sc && S.game.running ? 'block' : 'none';
+  $('alerts').innerHTML = (S.alerts || []).slice(-10).reverse().map((a) => `<div class="alert ${a.kind}"><b>${esc(tAlert(a.title))}</b><small>${clock(a.t)}${a.body ? ` · ${esc(tAlert(a.body))}` : ''}</small></div>`).join('') || `<span class="muted">${t('None yet.')}</span>`;
+  const tm = (S.timers || [])[0], bn = (S.bossNext || [])[0], now = Date.now() + off;
+  $('timer').innerHTML = tm ? `${esc(tm.title)} <b class="mono">${Math.max(0, Math.ceil((tm.endsAt - now) / 60000))} min</b>` : bn ? `🐉 ${esc(bn.boss)} <span class="muted">~${clock(bn.next)}</span>` : '—';
+  // passes, the maze run, auto-logged enhancing and the next things from the 24-hour plan
+  const icon = { boss: '🐉', custom: '📌', event: '🎉', checklist: '☑️', maintenance: '🛠' };
+  const up = [...(S.passes || []).filter((p) => p.end > now).map((p) => `<div class="row"><span>⏱ ${esc(t(p.label))}</span><span class="mono">${clock(p.end)}</span></div>`),
+    S.maze ? `<div class="row"><span>🌀 ${t('Maze run')}</span><span class="mono">+${S.maze.exp.toFixed(1)}% · ${S.maze.kills}</span></div>` : '',
+    S.enhanceAuto ? `<div class="row"><span>⚒ ${t('Enhance log')}</span><span class="mono">+${S.enhanceAuto.level}</span></div>` : '',
+    questNextLine(S.questNext, 'row'),
+    ...(S.dayNext || []).filter((x) => x.t > now && x.kind !== 'pass').map((x) => `<div class="row"><span>${icon[x.kind] || '•'} ${esc(t(x.title))}${x.coming?.length ? ` <span class="muted">(${esc(x.coming.join(', '))})</span>` : ''}</span><span class="mono">${clock(x.t)}</span></div>`)].filter(Boolean);
+  $('upCard').style.display = up.length ? 'block' : 'none';
+  $('up').innerHTML = up.join('');
+  // countdowns to your goals, with a bar for how far along you are
+  const cds = S.countdowns || [];
+  const hm = (ms) => { const m = Math.round(ms / 60000); return m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m` : `${m}m`; };
+  $('cdCard').style.display = cds.length ? 'block' : 'none';
+  $('cds').innerHTML = cds.map((c) => `<div class="row"><span>${{ level: '▲', expGoal: '🎯', gold: '💰' }[c.kind] || '•'} ${esc(c.kind === 'level' && c.n ? t('Level {n}', { n: c.n }) : t(c.label))}</span><span class="mono">${c.playMs == null ? '' : c.playMs === 0 ? '✓' : `~${hm(c.playMs)}`}</span></div>
+    <div class="gauge exp"><i style="width:${Math.max(0, Math.min(100, c.pct || 0))}%"></i></div>
+    <div class="muted" style="font-size:12px;margin:-4px 0 6px">${esc(c.kind === 'gold' ? (c.gold ? t('{g} to go', { g: gold(c.gold) }) : t('enough gold')) : t('{p} to go', { p: c.left }))}${c.playMs ? ` · ${esc(t('of play at your pace'))}` : ''}</div>`).join('');
+}
+
+// the game picture every 5 s while this page is open (needs "Show the game screen on my phone too" on the PC)
+let shotUrl = null;
+async function refreshShot() {
+  if (document.hidden || $('shotCard').style.display === 'none') return;
+  try {
+    const r = await fetch(`/api/peek.jpg?t=${Date.now()}`, { cache: 'no-store' });
+    if (!r.ok) { $('shotAt').textContent = r.status === 403 ? t('switch on "Show the game screen on my phone too" on the PC') : t('no recent look: is the game minimised?'); $('shot').style.display = 'none'; return; }
+    if (shotUrl) URL.revokeObjectURL(shotUrl);
+    shotUrl = URL.createObjectURL(await r.blob());
+    $('shot').src = shotUrl; $('shot').style.display = 'block';
+    $('shotAt').textContent = t('seen at {time}', { time: clock(+r.headers.get('X-Taken-At') || Date.now()) });
+  } catch { /* tracker restarting */ }
+}
+setInterval(refreshShot, 5000);
+
+// planning from the phone: the checklist (tick it), the quest trip with item counts (+ / −) and gear goals
+const gold = (v) => (v == null ? '—' : v >= 1e9 ? `${(v / 1e9).toFixed(1)}b` : v >= 1e6 ? `${(v / 1e6).toFixed(1)}m` : v >= 1e3 ? `${Math.round(v / 1e3)}k` : String(v));
+async function loadPlan() {
+  if (document.hidden) return;
+  let p; try { p = await (await fetch('/api/phone-plan', { cache: 'no-store' })).json(); } catch { setTimeout(loadPlan, 3000); return; } // tracker busy / restarting: try again soon
+  $('clCard').style.display = p.checklist.length ? 'block' : 'none';
+  $('cl').innerHTML = p.checklist.map((c) => `<label class="row tick"><span><input type="checkbox" data-cl="${esc(c.id)}" ${c.done ? 'checked' : ''}> ${esc(c.text)}</span><span class="muted mono" style="font-size:12px">${c.nextReset ? clock(c.nextReset) : ''}</span></label>`).join('');
+  const items = p.items.filter((i) => i.picked < i.need);
+  $('qtCard').style.display = p.trip.length || items.length ? 'block' : 'none';
+  $('qt').innerHTML = items.map((i) => `<div class="row"><span>${esc(i.name)} <span class="muted">${i.killsLeft ? `~${i.killsLeft} ${t('kills')}` : ''}</span></span><span class="mono"><button class="pm" data-qp="${i.quest}" data-qi="${i.itemId}" data-qv="${i.picked - 1}">−</button> ${i.picked}/${i.need} <button class="pm" data-qp="${i.quest}" data-qi="${i.itemId}" data-qv="${i.picked + 1}">+</button></span></div>`).join('')
+    + (p.trip.length ? `<ol class="trip">${p.trip.map((s) => `<li>${s.kind === 'collect' ? '⛏' : '💬'} ${esc(s.label)} <span class="muted">· ${esc(s.zoneName || '')}</span></li>`).join('')}</ol>` : '');
+  $('ggCard').style.display = p.goals.length ? 'block' : 'none';
+  $('gg').innerHTML = p.goals.map((g) => `<div class="row"><span>${g.have ? '✓ ' : ''}${esc(g.name)} <span class="muted">${esc(t(g.kind))}</span></span><span class="mono">${g.have ? '' : g.price ? `~${gold(g.price)}` : '—'}</span></div>`).join('');
+}
+document.addEventListener('change', async (e) => {
+  const c = e.target.closest('[data-cl]'); if (!c) return;
+  await fetch('/api/checklist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'toggle', id: c.dataset.cl, done: c.checked }) });
+  loadPlan();
+});
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-qp]'); if (!b) return;
+  await fetch('/api/quest-progress', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ quest: b.dataset.qp, item: b.dataset.qi, picked: Math.max(0, +b.dataset.qv) }) });
+  loadPlan();
+});
+loadPlan(); setInterval(loadPlan, 30000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) loadPlan(); });
+
+startI18n();
+const es = new EventSource('/events?delta=1');
+es.onmessage = (e) => {
+  const first = !S;
+  { const prev = S; S = JSON.parse(e.data); if (SofGate.onState(S)) { S = prev; return; } for (const k of S.same || []) S[k] = prev?.[k]; } off = S.now - Date.now();
+  if (S.settings?.lang && S.settings.lang !== getLang()) setLang(S.settings.lang);
+  render();
+  if (first) refreshShot();
+};
+es.onerror = () => { $('who').innerHTML = `<span class="dot"></span>${t('Tracker offline…')}`; };
+</script>
+</body>
+</html>

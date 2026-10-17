@@ -1,0 +1,1215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0e0f13">
+<title>Scions of Fate Tracker</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SoF Tracker">
+<script src="/i18n-dict.js"></script>
+<script src="/i18n.js"></script>
+<script src="/update-gate.js"></script>
+<script src="/sounds.js"></script>
+<script src="/help.js"></script>
+<script src="/krguide.js"></script>
+<script>
+  // apply the saved theme / compact choice before first paint
+  try {
+    document.documentElement.dataset.theme = JSON.parse(localStorage.getItem('sof.theme') || '"dark"');
+    document.documentElement.dataset.compact = JSON.parse(localStorage.getItem('sof.compact') || '0') ? '1' : '0';
+  } catch { document.documentElement.dataset.theme = 'dark'; }
+</script>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<header>
+  <div class="toprow">
+    <h1>Scions of Fate · Tracker</h1>
+    <span class="status"><span class="dot" id="gameDot"></span><span id="gameStatus">Connecting…</span></span>
+    <button id="btnPlay" class="play" title="Start the game launcher">▶ Play</button>
+    <button id="btnPlay2" class="play" title="Start the launcher again for a second game client (two at most)" hidden>▶ 2nd client</button>
+    <div class="clocks">
+      <div><label id="srvClockLbl">Server time</label><span class="mono" id="srvClock">—</span><small id="srvDate"></small></div>
+      <div><label>Your time</label><span class="mono" id="myClock">—</span><small id="myDate"></small></div>
+    </div>
+    <div class="gsearch"><input id="gSearch" type="search" placeholder="Search everything…" autocomplete="off" aria-label="Search monsters, items, zones, quests, the Korean guide and players"><div id="gSearchPop" class="gsearch-pop" hidden></div></div>
+    <div class="viewbtns"><button id="btnTheme" title="Theme"></button><button id="btnCompact" title="Compact mode">▤</button><button id="btnLayout" title="Arrange or hide panels">▦</button></div>
+    <div class="ident">
+      <div><label>Character</label><span id="char">—</span>
+        <select id="charView" class="charview" title="Whose Honor, Ascension and week the dashboard shows"></select></div>
+      <div><label>Level / Class</label><span id="selfLvl" class="editable" title="Click to set">—</span></div>
+      <div><label>Faction</label><span id="selfFac">—</span></div>
+      <div class="wide-only"><label>House</label><span id="selfHouse">—</span></div>
+      <div class="wide-only"><label>Account</label><span id="acct">—</span></div>
+      <div><label>Server / Ch.</label><span id="srv">—</span></div>
+    </div>
+  </div>
+  <nav id="nav">
+    <button data-tab="live" class="active">Live</button>
+    <button data-tab="rankings">Rankings</button>
+    <button data-tab="sessions">Sessions</button>
+    <button data-tab="encounters">Encounters</button>
+    <button data-tab="heatmap">Heatmap</button>
+    <button data-tab="world">3D World</button>
+    <button data-tab="stats">Stats</button>
+    <button data-tab="house">House</button>
+    <button data-tab="hunting">Guide</button>
+    <button data-tab="trades">Trades</button>
+    <button data-tab="report">Weekly report</button>
+    <button data-tab="alerts">Alerts<span class="badge" id="alertBadge" hidden></span></button>
+    <button data-tab="settings">Settings</button>
+    <button data-tab="help">Help</button>
+  </nav>
+</header>
+
+<div id="maintBar"></div>
+<div id="updBar"></div>
+
+<!-- ============================================================ LIVE -->
+<section class="tab active" id="tab-live">
+  <div class="clients" id="clients" hidden></div>
+  <div class="gearcmp trynext" id="tryNext" hidden></div>
+  <div class="gearcmp" id="gearCmp" data-feature="gear" hidden></div>
+  <div class="gearcmp pricenow" id="priceNow" data-feature="gear" hidden></div>
+  <div class="kpis">
+    <div class="kpi"><label>Session time</label><div class="v" id="kSession">—</div><div class="sub" id="kSessionSub">&nbsp;</div></div>
+    <div class="kpi"><label>Current zone</label><div class="v" id="kZone">—</div><div class="sub" id="kZoneSub">&nbsp;</div></div>
+    <div class="kpi"><label>Position</label><div class="v" id="kPos">—</div><div class="sub" id="kPosSub">&nbsp;</div></div>
+    <div class="kpi"><label>Distance</label><div class="v" id="kDist">—</div><div class="sub" id="kSpeed">&nbsp;</div></div>
+    <div class="kpi"><label>Players nearby</label><div class="v" id="kNearby">—</div><div class="sub" id="kSeen">&nbsp;</div></div>
+    <div class="kpi"><label>Order vs Chaos nearby</label><div class="v" id="kFac">—</div><div class="facbar" id="kFacBar"></div></div>
+    <div class="kpi" id="kDangerCard"><label>Enemies nearby</label><div class="v" id="kDanger">—</div><div class="sub" id="kDangerSub">&nbsp;</div></div>
+    <div class="kpi"><label>Next timer</label><div class="v" id="kTimer">—</div><div class="sub" id="kTimerSub">&nbsp;</div></div>
+    <div class="kpi"><label>Played today</label><div class="v" id="kToday">—</div><div class="bar" id="kTodayBar"><i></i></div><div class="sub" id="kTodaySub">&nbsp;</div></div>
+    <div class="kpi"><label>Active / AFK</label><div class="v" id="kActive">—</div><div class="sub" id="kActiveSub">&nbsp;</div></div>
+    <div class="kpi" id="kHpCard" hidden><label>HP / MP</label><div class="v" id="kHp">—</div><div class="bar hp" id="kHpBar"><i></i></div><div class="bar mp" id="kMpBar"><i></i></div><div class="sub" id="kHpSub">&nbsp;</div></div>
+    <div class="kpi" id="kTargetCard" hidden><label>Target</label><div class="v notr" id="kTarget" style="font-size:18px">—</div><div class="sub" id="kTargetSub">&nbsp;</div></div>
+    <div class="kpi" id="kExpCard" hidden><label>EXP</label><div class="v" id="kExp">—</div><div class="bar" id="kExpBar"><i></i></div><div class="sub" id="kExpSub">&nbsp;</div></div>
+    <div class="kpi" id="kPartyCard" hidden><label>Party HP</label><div id="kParty" class="partyhp"></div></div>
+    <div class="kpi" id="kMiniCard" hidden><label>Minimap</label><div class="minimini"><svg id="kMiniSvg" viewBox="-85 -85 170 170" width="64" height="64" role="img" aria-label="Players on your minimap"></svg><div><div class="v" id="kMini">—</div><div class="sub" id="kMiniSub">&nbsp;</div></div></div></div>
+    <div class="kpi" id="kGoldCard" data-feature="gold" hidden><label>Gold</label><div class="v" id="kGold">—</div><div class="sub" id="kGoldSub">&nbsp;</div></div>
+    <div class="kpi" id="kGoalCard" hidden><label>EXP goal today</label><div class="v" id="kGoal">—</div><div class="bar" id="kGoalBar"><i></i></div><div class="sub" id="kGoalSub">&nbsp;</div></div>
+  </div>
+
+  <div class="grid">
+    <section class="panel c8">
+      <h2>Movement trail <small><span id="mapInfo"></span> <select id="mapMode" style="margin-left:8px"><option value="follow">Follow me</option><option value="whole">Whole map</option></select></small></h2>
+      <canvas class="map" id="map" style="height:420px"></canvas>
+      <div class="maplegend"><span><span class="swatch" style="background:var(--gold)"></span>You</span><span><span class="swatch" style="background:var(--gold-dim)"></span>Trail (current zone)</span><span id="mapBounds"></span>
+        <span style="margin-left:auto;display:flex;gap:6px"><button class="small" id="btnMarkHere">📍 Mark my spot</button><button class="small" id="btnMarkClick">＋ Place on map</button></span></div>
+      <div id="markerChips" style="margin-top:8px"></div>
+    </section>
+
+    <section class="panel c4" id="peekPanel" hidden>
+      <h2>Game screen <small id="peekInfo">the screen reader's latest look</small></h2>
+      <a id="peekLink" href="/api/peek.jpg" target="_blank" rel="noopener"><img id="peekImg" class="peek" alt=""></a>
+    </section>
+
+    <section class="panel c4">
+      <h2>Boss &amp; event timers <small>from server notices</small></h2>
+      <div id="timers"></div>
+      <div id="passTimers"></div>
+      <div id="bossNext"></div>
+      <div id="guideBoss"></div>
+      <h2 style="margin-top:18px">Active effects <small>click a name to label it</small></h2>
+      <div id="buffs"></div>
+      <div id="effOnScreen"></div>
+    </section>
+
+    <section class="panel c8">
+      <h2>Players this session <small>click a player for details · ★ to watch</small></h2>
+      <div class="tools">
+        <select id="pFilter"><option value="nearby">Nearby now</option><option value="all">Everyone seen</option><option value="watched">Watched only</option></select>
+        <select id="pFaction"><option value="">All factions</option><option>The Order</option><option>The Chaos</option><option value="?">Unknown</option></select>
+        <input id="pSearch" placeholder="Search name…" size="14">
+      </div>
+      <div class="scroll tall"><table><thead><tr><th></th><th>Name</th><th class="num">Lv</th><th>Class</th><th>Faction</th><th>House</th><th>Seen</th></tr></thead><tbody id="players"></tbody></table></div>
+    </section>
+
+    <section class="panel c4">
+      <h2>Time per zone <small>click a zone to label it</small></h2>
+      <div class="zonebar" id="zoneBar"></div>
+      <div class="scroll"><table><thead><tr><th>Zone</th><th class="num">Time</th><th class="num">Distance</th></tr></thead><tbody id="zones"></tbody></table></div>
+    </section>
+
+    <section class="panel c4">
+      <h2>Official news <small id="newsInfo"></small></h2>
+      <div class="scroll news" id="newsList"></div>
+    </section>
+
+    <section class="panel c4">
+      <h2>Events <small id="evInfo">from the official news</small></h2>
+      <div class="scroll" id="events"></div>
+    </section>
+
+    <section class="panel c4">
+      <h2>Server notices</h2>
+      <div class="scroll" id="notices"></div>
+      <h2 style="margin-top:14px">Announced in the chat <small>besides drops, read by the screen reader</small></h2>
+      <div class="scroll" id="annList"></div>
+    </section>
+
+    <section class="panel c4" id="checkPanel">
+      <h2>Checklist <small id="ckInfo">resets in server time</small></h2>
+      <div id="checks"></div>
+      <details class="ckadd"><summary>＋ Add</summary>
+        <div class="tools" style="margin-top:6px"><input id="ckText" placeholder="e.g. Daily boss, Arena, Guild quest…" size="22" maxlength="80">
+          <select id="ckEvery"><option value="daily">Every day</option><option value="weekly">Every week</option><option value="hours">Every few hours</option></select>
+          <select id="ckDay" hidden></select>
+          <select id="ckHours" hidden><option value="1">every 1 h</option><option value="2">every 2 h</option><option value="3" selected>every 3 h</option><option value="4">every 4 h</option><option value="6">every 6 h</option><option value="8">every 8 h</option><option value="12">every 12 h</option><option value="24">every 24 h</option></select>
+          <label class="muted" style="font-size:12px" id="ckHourLbl">resets at <select id="ckHour"></select></label>
+          <label class="muted" style="font-size:12px">remind <select id="ckRemind"><option value="0">no</option><option value="30">30 min</option><option value="60" selected>1 h</option><option value="120">2 h</option><option value="240">4 h</option></select> before</label>
+          <button class="small primary" id="ckAdd">Add</button></div>
+        <div class="tools"><label class="wchk"><input type="checkbox" id="ckPerChar"> per character (dailies on several characters)</label></div>
+        <div class="tools"><button class="small" id="ckPet">🐾 Feed my pet every 3 h</button></div>
+      </details>
+    </section>
+
+    <section class="panel c4" id="dayPanel">
+      <h2>Next 24 hours <small id="dpInfo">bosses, events, resets and your timers</small></h2>
+      <div id="dpPlay" class="dpplay" title="When you usually play (last 30 days)"></div>
+      <div class="scroll" style="max-height:360px" id="dpList"></div>
+      <details class="ckadd"><summary>＋ My own events</summary>
+        <div id="evList"></div>
+        <div class="tools" style="margin-top:6px"><input id="evName" placeholder="e.g. House war, Arena…" size="18" maxlength="60">
+          <span id="evDays" class="evdays"></span>
+          <label class="muted" style="font-size:12px">at <input id="evTime" type="time" value="20:00"> (server time)</label>
+          <label class="muted" style="font-size:12px">remind <select id="evRemind"><option value="0">no</option><option value="5">5 min</option><option value="10" selected>10 min</option><option value="30">30 min</option><option value="60">1 h</option></select> before</label>
+          <button class="small primary" id="evAdd">Add</button></div>
+        <div class="tools"><span class="muted" style="font-size:12px">From the Korean guide (Korean times):</span><span id="evPresets"></span></div>
+      </details>
+    </section>
+
+    <section class="panel c4" id="partyPanel" hidden>
+      <h2>Party <small>friends through friends sync</small></h2>
+      <div id="party"></div>
+    </section>
+
+    <section class="panel c4" id="altsPanel" hidden>
+      <h2>Your other game windows <small>tracked at the same time</small></h2>
+      <div id="alts"></div>
+    </section>
+
+    <section class="panel c8" id="effectPanel">
+      <h2>Effect history <small>since tracker started</small></h2>
+      <div class="scroll"><table><thead><tr><th>Effect</th><th class="num">Applied</th><th class="num">Duration</th><th>Last</th></tr></thead><tbody id="buffHist"></tbody></table></div>
+    </section>
+  </div>
+</section>
+
+<!-- ============================================================ RANKINGS -->
+<section class="tab" id="tab-rankings">
+  <div class="tools">
+    <span class="seg" id="rRange"><button data-days="1">24 h</button><button data-days="7" class="on">7 days</button><button data-days="30">30 days</button><button data-days="365">All</button></span>
+    <span class="muted" id="rHistInfo" style="font-size:12px"></span>
+  </div>
+  <div class="grid">
+    <section class="panel c6">
+      <h2>Order vs Chaos <small>characters in the public top lists</small></h2>
+      <div id="facChart" class="chart"></div>
+    </section>
+    <section class="panel c6">
+      <h2>Top houses <small>members in the top lists over time</small></h2>
+      <div id="houseChart" class="chart"></div>
+    </section>
+
+    <section class="panel c4">
+      <h2>Fastest levelling</h2>
+      <div class="scroll"><table><thead><tr><th>Name</th><th class="num">Lv</th><th class="num">Gain</th></tr></thead><tbody id="rFastest"></tbody></table></div>
+    </section>
+    <section class="panel c4">
+      <h2>Honor gained</h2>
+      <div class="scroll"><table><thead><tr><th>Name</th><th class="num">Honor</th><th class="num">Gain</th></tr></thead><tbody id="rHonor"></tbody></table></div>
+    </section>
+    <section class="panel c4">
+      <h2>Rank changes <small>overall board</small></h2>
+      <div class="scroll"><table><thead><tr><th>Name</th><th class="num">Now</th><th class="num">Change</th></tr></thead><tbody id="rClimb"></tbody></table></div>
+    </section>
+
+    <section class="panel c5">
+      <h2>Houses</h2>
+      <div class="scroll tall"><table><thead><tr><th>House</th><th>Faction</th><th class="num">Members</th><th class="num">Avg Lv</th><th class="num">Honor</th></tr></thead><tbody id="rHouses"></tbody></table></div>
+    </section>
+
+    <section class="panel c7">
+      <h2>Current boards <small id="rankInfo"></small></h2>
+      <div class="tools">
+        <select id="rBoard"></select>
+        <select id="rFaction"><option value="">All factions</option><option>The Order</option><option>The Chaos</option></select>
+      </div>
+      <div class="scroll tall"><table><thead><tr><th></th><th class="num">#</th><th>Name</th><th class="num">Lv</th><th>Class</th><th>Faction</th><th>House</th><th class="num">Honor</th></tr></thead><tbody id="rankings"></tbody></table></div>
+    </section>
+
+    <section class="panel c12">
+      <h2>Level predictions <small>from when each player's level changed in the saved rankings</small></h2>
+      <div class="scroll"><table><thead><tr><th>Name</th><th>Class</th><th>Faction</th><th class="num">Lv</th><th class="num">Levels/day</th><th class="num">Next level</th><th class="num">Next ×10</th><th class="num">Based on</th></tr></thead><tbody id="rPred"></tbody></table></div>
+    </section>
+
+    <section class="panel c12" id="playerPanel" hidden>
+      <h2><span id="ppName"></span> <small id="ppInfo"></small></h2>
+      <div class="grid">
+        <div class="c6"><div class="muted" style="font-size:12px;margin-bottom:4px">Level</div><div id="ppLevel" class="chart"></div></div>
+        <div class="c6"><div class="muted" style="font-size:12px;margin-bottom:4px">Honor</div><div id="ppHonor" class="chart"></div></div>
+      </div>
+    </section>
+  </div>
+</section>
+
+<!-- ============================================================ SESSIONS -->
+<section class="tab" id="tab-sessions">
+  <div class="grid">
+    <section class="panel c8">
+      <h2>Play time calendar <small id="calTotals"></small></h2>
+      <div class="tools"><select id="calAccount"></select></div>
+      <div class="cal" id="cal"></div>
+      <div class="cal-legend">Less <span style="background:var(--panel-2)"></span><span style="background:#4a3a1c"></span><span style="background:#7a5f28"></span><span style="background:#b08530"></span><span style="background:#e6bd62"></span> More</div>
+    </section>
+    <section class="panel c4">
+      <h2>Weekly play time</h2>
+      <div id="weekChart" class="chart"></div>
+    </section>
+
+    <section class="panel c7">
+      <h2>Tracked sessions <small>click one for details</small></h2>
+      <div class="scroll tall"><table><thead><tr><th>Started</th><th>Character</th><th class="num">Length</th><th class="num">Active</th><th class="num">Distance</th><th class="num">Players</th><th>Main zone</th></tr></thead><tbody id="sessionList"></tbody></table></div>
+    </section>
+    <section class="panel c5">
+      <h2>Session details <small id="sdInfo"></small></h2>
+      <div id="sessionDetail"><div class="empty">Pick a session on the left.</div></div>
+    </section>
+    <section class="panel c12">
+      <h2>Screenshots <small id="shotInfo">from the game's capture folder</small></h2>
+      <div class="shots" id="shots"></div>
+    </section>
+  </div>
+</section>
+
+<!-- ============================================================ ENCOUNTERS -->
+<section class="tab" id="tab-encounters">
+  <section class="panel" style="margin-bottom:14px">
+    <h2>Groups that travel together <small id="grpInfo"></small></h2>
+    <div id="groups"></div>
+  </section>
+  <section class="panel">
+    <h2>Player encounter history <small id="encInfo"></small></h2>
+    <div class="tools">
+      <input id="encSearch" placeholder="Search name…" size="16">
+      <select id="encFaction"><option value="">All factions</option><option>The Order</option><option>The Chaos</option><option value="?">Unknown</option></select>
+      <select id="encSort"><option value="sessions">Most sessions</option><option value="near">Most time near you</option><option value="recent">Most recent</option></select>
+    </div>
+    <div class="scroll" style="max-height:640px"><table><thead><tr><th></th><th>Name</th><th class="num">Lv</th><th>Class</th><th>Faction</th><th class="num">Sessions</th><th class="num">Time near</th><th>First met</th><th>Last met</th><th>Usual zone</th></tr></thead><tbody id="encounters"></tbody></table></div>
+  </section>
+</section>
+
+<!-- ============================================================ HEATMAP -->
+<section class="tab" id="tab-heatmap">
+  <section class="panel">
+    <h2>Where you spend your time <small id="heatInfo"></small></h2>
+    <div class="tools"><select id="heatZone"></select><label class="wchk"><input type="checkbox" id="heatDeaths" checked> Where I died</label><span class="muted" id="heatDeathInfo" style="font-size:12px"></span></div>
+    <canvas class="map" id="heat" style="height:520px"></canvas>
+    <div class="maplegend"><span>Less</span><span id="heatLegend"></span><span>More time</span><span id="heatHover" style="margin-left:auto"></span></div>
+  </section>
+</section>
+
+<!-- ============================================================ ALERTS -->
+<section class="tab" id="tab-alerts">
+  <div class="grid">
+    <section class="panel c4">
+      <h2>Alert settings</h2>
+      <div class="tools" style="flex-direction:column;align-items:stretch">
+        <button id="btnSound"></button>
+        <button id="btnNotify"></button>
+        <button id="btnTest">Send a test alert</button>
+      </div>
+      <p class="muted" style="font-size:12px">You get alerts for watched players coming near you or changing in the rankings, boss and event timers (1 minute before and at start), and buffs of 5+ minutes running out. Desktop notifications also show while you're in the game.</p>
+      <h2 style="margin-top:18px">Sounds <small>per alert type, here and in the overlay</small></h2>
+      <div class="scroll" style="max-height:260px"><table class="sndtbl"><tbody id="sndRows"></tbody></table></div>
+      <div class="tools" style="margin-top:6px"><label class="btnlink" style="cursor:pointer">Add your own sound…<input type="file" id="sndFile" accept=".mp3,.wav,.ogg,.m4a,audio/*" hidden></label><span class="muted" style="font-size:12px">mp3, wav, ogg or m4a, up to 3 MB</span></div>
+      <div id="sndFiles" style="font-size:12px"></div>
+      <h2 style="margin-top:18px">Guide timers <small>from the Korean guide book</small></h2>
+      <label class="wchk"><input type="checkbox" id="gtBoss"> Field bosses: 10 minutes before the guide's times</label>
+      <div class="tools" style="margin-top:6px"><label class="muted" style="font-size:12px">at (server time) <input id="gtHours" size="12" placeholder="9, 13, 17, 21"></label></div>
+      <div class="tools"><label class="muted" style="font-size:12px">your Entry Bracelet lasts <select id="gtBracelet"><option value="24">24 hours</option><option value="4">4 hours</option></select></label></div>
+      <label class="wchk"><input type="checkbox" id="gtRisk"> Warn me when I walk into a zone where I often died or met enemies at this hour</label>
+      <label class="wchk"><input type="checkbox" id="gtLfg"> Party finder: "LF party / need healer" posts that fit my characters</label>
+      <div class="tools"><label class="muted" style="font-size:12px">bag weight alert at <select id="gtWeight"><option value="0">off</option><option value="80">80 %</option><option value="85">85 %</option><option value="90">90 %</option><option value="95">95 %</option></select> (when the inventory is open)</label></div>
+      <div class="tools"><label class="muted" style="font-size:12px"><input type="checkbox" id="gtGearOffer"> gear in the trade chat that beats yours (higher +, or newer at the same +)</label></div>
+      <p class="muted" style="font-size:12px">The Korean server's boss times are not confirmed for Scions of Fate. Once the tracker has seen a field boss spawn twice in the server notices, it uses those times instead. The Training Pass (2 hours) and Entry Bracelet countdowns start when you walk into a training area or dungeon.</p>
+      <h2 style="margin-top:18px">Watchlist</h2>
+      <form class="tools" id="watchForm"><input id="watchName" placeholder="Character name" size="16" required><button class="primary">Watch</button></form>
+      <div id="watchlist"></div>
+    </section>
+    <section class="panel c8">
+      <h2>Alert log</h2>
+      <div class="scroll" style="max-height:620px"><table><thead><tr><th>Time</th><th>Type</th><th>Alert</th></tr></thead><tbody id="alertLog"></tbody></table></div>
+      <div id="lanBox" class="note-box" style="margin-top:14px" hidden></div>
+    </section>
+  </div>
+</section>
+
+<!-- ============================================================ GUIDE (monsters, quests, NPCs, items) -->
+<section class="tab" id="tab-hunting">
+  <div class="tools"><span class="seg" id="gSeg"><button data-g="monsters" class="on">Monsters</button><button data-g="quests">Quests</button><button data-g="npcs">NPCs</button><button data-g="items">Items</button></span>
+    <span class="seg" id="gSeg2"><button data-g="dbquests">Quest planner</button><button data-g="dbgear">Gear advisor</button><button data-g="dbitems">Item database</button><button data-g="dbskills">Skills</button><button data-g="dbmobs">All monsters</button><button data-g="dbnpcs">NPC locations</button><button data-g="dbzones">Zones</button></span>
+    <span class="seg" id="gSeg3"><button data-g="kr">Korean guide</button><button data-g="level">Where to level</button><button data-g="enhance">Enhance calculator</button><button data-g="shop">Shopping list</button><button data-g="regions">Regions</button></span>
+    <span class="muted" style="font-size:12px" id="gSrc">From the game's own guide (Scions_of_Fate_guide.chm)</span></div>
+
+  <div class="grid gpane" id="g-quests" hidden>
+    <section class="panel c12">
+      <h2>Quests <small id="qInfo"></small></h2>
+      <div class="tools">
+        <label class="muted" style="font-size:12px">Your level <input id="qLevel" type="number" min="1" max="200" style="width:70px"></label>
+        <select id="qRange"><option value="5">±5 levels</option><option value="10" selected>±10 levels</option><option value="999">Any level</option></select>
+        <select id="qFaction"><option value="">All factions</option><option>Common</option><option>The Order</option><option>The Chaos</option></select>
+        <input id="qSearch" placeholder="Search quest, NPC or item…" size="22">
+      </div>
+      <div class="scroll" style="max-height:640px"><table><thead><tr><th>Quest</th><th class="num">Lv</th><th>Faction</th><th>NPC</th><th>Quest items</th></tr></thead><tbody id="quests"></tbody></table></div>
+    </section>
+  </div>
+
+  <div class="grid gpane" id="g-npcs" hidden>
+    <section class="panel c12">
+      <h2>NPCs <small id="nInfo"></small></h2>
+      <div class="tools"><input id="nSearch" placeholder="Search NPC or description…" size="24"></div>
+      <div class="scroll" style="max-height:640px"><table><thead><tr><th></th><th>NPC</th><th>Area</th><th>About</th><th></th></tr></thead><tbody id="npcs"></tbody></table></div>
+      <p class="muted" style="font-size:12px">The guide doesn't give NPC coordinates. Stand next to an NPC in-game and use “Mark here” to pin them on your zone map.</p>
+    </section>
+  </div>
+
+  <div class="grid gpane" id="g-items" hidden>
+    <section class="panel c12">
+      <h2>Items <small id="iInfo"></small></h2>
+      <div class="tools">
+        <select id="iGroup"><option value="">All types</option><option>Weapon</option><option>Armor</option><option>Robe</option><option>Other</option></select>
+        <select id="iClass"><option value="">Any class</option></select>
+        <label class="muted" style="font-size:12px">Max level <input id="iLevel" type="number" min="1" max="200" style="width:70px"></label>
+        <input id="iSearch" placeholder="Search item…" size="18">
+      </div>
+      <div class="scroll" style="max-height:640px"><table><thead><tr><th></th><th>Item</th><th>Type</th><th>Details</th></tr></thead><tbody id="items"></tbody></table></div>
+    </section>
+  </div>
+
+  <div class="grid gpane" id="g-monsters">
+    <section class="panel c8">
+      <h2>Monsters <small id="monInfo"></small></h2>
+      <div class="tools">
+        <label class="muted" style="font-size:12px">Your level <input id="hLevel" type="number" min="1" max="200" style="width:70px"></label>
+        <select id="hRange"><option value="3">±3 levels</option><option value="5" selected>±5 levels</option><option value="10">±10 levels</option><option value="999">Any level</option></select>
+        <select id="hType"><option value="">Any type</option><option>Aggressive</option><option>Defensive</option></select>
+        <select id="hArea"><option value="">All areas</option></select>
+        <input id="hSearch" placeholder="Search monster…" size="14">
+      </div>
+      <div class="scroll" style="max-height:640px"><table><thead><tr><th></th><th>Monster</th><th class="num">Lv</th><th>Area</th><th>Type</th></tr></thead><tbody id="monsters"></tbody></table></div>
+    </section>
+    <section class="panel c4">
+      <h2>Best areas for you <small id="bestInfo"></small></h2>
+      <div id="bestAreas"></div>
+      <p class="muted" style="font-size:12px;margin-top:14px">The guide covers the classic zones up to about level 100; newer high-level maps are not in it. "Aggressive" monsters attack on sight.</p>
+    </section>
+  </div>
+
+  <!-- the game's own database, decoded from the client's data files -->
+  <div class="grid gpane" id="g-dbitems" hidden>
+    <section class="panel c12">
+      <h2>Item database <small id="dbiInfo"></small></h2>
+      <div class="tools">
+        <input id="dbiSearch" placeholder="Search item name or id…" size="22">
+        <select id="dbiClass"><option value="">All classes</option></select>
+        <select id="dbiSlot"><option value="">All types</option></select>
+        <label class="muted" style="font-size:12px">Level <input id="dbiMin" type="number" min="0" max="400" style="width:60px"> – <input id="dbiMax" type="number" min="0" max="400" style="width:60px"></label>
+        <span class="seg small" id="dbiQuick"><button class="small" data-dbi-slot="11">Charms</button><button class="small" data-dbi-slot="10">Gems</button><button class="small" data-dbi-slot="30">Soul pets</button><button class="small" data-dbi-slot="9">Outfits</button></span>
+        <select id="dbiSort"><option value="level">Sort: level</option><option value="name">Sort: name</option><option value="atk">Sort: attack</option><option value="def">Sort: defense</option><option value="price">Sort: price</option></select>
+      </div>
+      <div class="scroll" style="max-height:640px"><table><thead><tr><th></th><th>Item</th><th class="num">Lv</th><th>Class</th><th>Type</th><th class="num">Attack</th><th class="num">Defense</th><th class="num">Shop price</th><th class="num" title="What an NPC pays you for it">NPC pays</th><th class="num" title="The usual selling price in the trade chat (last 90 days)">Chat price</th></tr></thead><tbody id="dbItems"></tbody></table></div>
+    </section>
+  </div>
+  <div class="grid gpane" id="g-kr" hidden>
+    <section class="panel c3">
+      <h2>Korean guide</h2>
+      <div id="krNav" class="krnav"></div>
+      <p class="muted" style="font-size:12px">From the official guide book of the Korean Yulgang (<span class="notr">열혈강호</span>), read by hand and summarised in English. Names are the ones Scions of Fate uses where the game files show them. The Korean game has had its own updates, so times, numbers and odds can differ in Scions of Fate.</p>
+      <a class="btnlink" id="krSrc" href="#" target="_blank" rel="noopener">Original (Korean)</a>
+    </section>
+    <section class="panel c9">
+      <div id="krBody" class="krbody"></div>
+    </section>
+    <section class="panel c12">
+      <h2>Official guide pages <small>the pages the game itself links to, on the Korean Yulgang site (in Korean; your browser can translate them)</small></h2>
+      <div id="krLinks" class="krlinks"></div>
+    </section>
+  </div>
+  <div class="grid gpane" id="g-level" hidden>
+    <section class="panel c12">
+      <h2>Where to level <small id="lvInfo"></small></h2>
+      <div class="tools"><label>Level <input id="lvLevel" type="number" min="1" max="200" style="width:70px"></label></div>
+      <table><thead><tr><th>Where</th><th>Kind</th><th class="num">Levels</th><th class="num">Your EXP / h</th><th>Note</th></tr></thead><tbody id="lvPlaces"></tbody></table>
+      <p class="muted" style="font-size:12px">Places where you measured your own EXP per hour (screen reader) come first. Then the training areas and dungeons from the Korean guide that fit your level, and fields with several kinds of monsters around your level (from the game's quest data).</p>
+    </section>
+  </div>
+  <div class="grid gpane" id="g-enhance" hidden>
+    <section class="panel c4">
+      <h2>Enhance calculator</h2>
+      <div class="formgrid">
+        <label>Luck charm <select id="enCharm"><option value="best">Best grade (최상급)</option><option value="high" selected>High grade (상급)</option><option value="mid">Mid grade (중급)</option></select></label>
+        <label>Equipment tier <select id="enTier"></select></label>
+        <label>Now at <select id="enFrom"></select></label>
+        <label>Want <select id="enTo"></select></label>
+        <label>Stones per try <select id="enStones"><option value="1">1 (not combined)</option><option value="2">2 (combined 1–2×)</option><option value="3">3 (combined 3–4×)</option></select></label>
+        <label>Stone price <input id="enStone" type="number" min="0" placeholder="0"></label>
+        <label>Charm price <input id="enCharmPrice" type="number" min="0" placeholder="0"></label>
+        <label>Fee per try <input id="enFee" type="number" min="0" placeholder="0"></label>
+        <label>Price of a new item <input id="enItem" type="number" min="0" placeholder="0"></label>
+      </div>
+      <label class="wchk"><input type="checkbox" id="enOwn"> Use my own results where I logged 5+ tries</label>
+      <label class="wchk" id="enPoolLbl" hidden><input type="checkbox" id="enPool"> <span>Include my friends' tries</span> <small class="muted" id="enPoolInfo"></small></label>
+      <h2 style="margin-top:14px">Prices in the chat <small>last 90 days</small></h2>
+      <div id="enPrices" class="muted" style="font-size:12px"></div>
+    </section>
+    <section class="panel c8">
+      <h2>Your chances <small id="enInfo"></small></h2>
+      <div class="kpis" id="enKpis"></div>
+      <table><thead><tr><th>Try for</th><th class="num">Chance</th><th class="num">Chance to get this far</th><th></th></tr></thead><tbody id="enSteps"></tbody></table>
+      <p class="muted" style="font-size:12px">The odds are the Korean server's (guide book). A failure from +3 on is counted as losing the item, so these are careful numbers. Log your own tries below to check Scions of Fate's real odds.</p>
+      <h2 style="margin-top:14px">Log tries automatically <small id="enAutoInfo"></small></h2>
+      <div class="tools"><input id="enAutoItem" placeholder="Item (optional)" size="18" maxlength="60"><label class="muted" style="font-size:12px">next try for <select id="enAutoLevel"></select></label>
+        <label class="muted" style="font-size:12px">with <select id="enSofCharm"></select></label>
+        <button class="small primary" id="enAutoGo">Start</button><button class="small" id="enAutoStop">Stop</button></div>
+      <p class="muted" style="font-size:12px">The screen reader logs every "enhancement has succeeded / failed" message it sees, with the luck charm grade picked above. After a success the next try is one higher; after a failure it stops, so you can say where the item is now.</p>
+      <div id="enGrades"></div>
+      <h2 style="margin-top:14px">Log a try <small id="enLogInfo"></small></h2>
+      <div class="tools"><label>Tried for <select id="enLogLevel"></select></label><button class="small" data-enlog="1">✓ Worked</button><button class="small" data-enlog="0">✗ Failed</button><button class="small" id="enUndo">Undo last</button></div>
+      <table><thead><tr><th>Level</th><th class="num">Your tries</th><th class="num">Your rate</th><th class="num">Guide</th></tr></thead><tbody id="enOwnRows"></tbody></table>
+      <h2 style="margin-top:14px">Announced in the chat <small>+5 and higher, read by the screen reader</small></h2>
+      <div id="enAnnounced" class="muted" style="font-size:12px"></div>
+    </section>
+  </div>
+  <div class="grid gpane" id="g-regions" hidden>
+    <section class="panel c4">
+      <h2>Regions <small id="rgInfo"></small></h2>
+      <div class="tools"><input id="rgSearch" placeholder="Search zone, monster, NPC…" size="22"><label class="muted" style="font-size:12px">for level <input id="rgLevel" type="number" min="0" max="200" style="width:60px"></label></div>
+      <div class="scroll" style="max-height:640px" id="rgList"></div>
+    </section>
+    <section class="panel c8">
+      <div id="rgBody"><div class="empty">Pick a region on the left.</div></div>
+    </section>
+  </div>
+  <div class="grid gpane" id="g-shop" hidden>
+    <section class="panel c12">
+      <h2>Shopping list <small id="shInfo"></small></h2>
+      <div class="tools"><input id="shName" list="shNames" placeholder="Item name" size="28" autocomplete="off"><datalist id="shNames"></datalist><input id="shQty" type="number" min="1" value="1" style="width:70px"><button class="small primary" id="shAdd">Add</button><button class="small" id="shClear">Clear the list</button></div>
+      <table><thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Shop price</th><th class="num">Chat price</th><th class="num">Total</th><th class="num" title="An alert when someone in the chat sells it for this or less">Alert at</th><th></th></tr></thead><tbody id="shRows"></tbody></table>
+      <p class="muted" style="font-size:12px">Add items here, from an item's window (🛒) or from a quest in the Quest planner. The total uses the chat's usual selling price, else the shop price. Click an item to see who drops it.</p>
+    </section>
+  </div>
+  <div class="grid gpane" id="g-dbmobs" hidden>
+    <section class="panel c12">
+      <h2>All monsters <small id="dbmInfo"></small></h2>
+      <div class="tools"><input id="dbmSearch" placeholder="Search monster…" size="20"><label class="muted" style="font-size:12px">Level <input id="dbmMin" type="number" min="0" style="width:60px"> – <input id="dbmMax" type="number" min="0" style="width:60px"></label></div>
+      <div class="scroll" style="max-height:640px"><table><thead><tr><th>Monster</th><th class="num">Lv</th><th class="num">HP</th><th>Where</th></tr></thead><tbody id="dbMobs"></tbody></table></div>
+      <p class="muted" style="font-size:12px">The game keeps monster spawns on its servers. “Where” comes from the quests that send you to collect a monster's drops (exact spots, also shown in 3D) and from the game guide (area names).</p>
+    </section>
+  </div>
+  <div class="grid gpane" id="g-dbquests" hidden>
+    <section class="panel c12">
+      <h2>Quest planner <small id="dbqInfo"></small></h2>
+      <div class="tools">
+        <label class="muted" style="font-size:12px">Level <input id="dbqLevel" type="number" min="1" max="300" style="width:64px"></label>
+        <select id="dbqRange"><option value="3">±3 levels</option><option value="5" selected>±5 levels</option><option value="10">±10 levels</option><option value="999">Any level</option></select>
+        <select id="dbqClass"></select>
+        <input id="dbqSearch" placeholder="Search quest or item…" size="20">
+        <label class="wchk"><input type="checkbox" id="dbqHide"> Hide done</label>
+        <span class="seg" id="dbqMode"><button data-qm="list" class="on">All quests</button><button data-qm="plan">Leveling plan</button></span>
+      </div>
+      <div id="dbqActive" class="qactive" data-feature="quests"></div>
+      <div id="dbQuests"></div>
+    </section>
+  </div>
+  <div class="grid gpane" id="g-dbgear" hidden>
+    <section class="panel c12">
+      <h2>Gear advisor <small id="dbgInfo"></small></h2>
+      <div class="tools">
+        <select id="dbgClass"></select> <select id="dbgGender" title="Robes and some gear are made for one gender"><option value="">your gender</option><option value="M">male</option><option value="F">female</option></select>
+        <label class="muted" style="font-size:12px">Level <input id="dbgLevel" type="number" min="1" max="300" style="width:64px"></label>
+        <label class="wchk"><input type="checkbox" id="dbgEvents"> Include event &amp; time-limited items</label>
+      </div>
+      <div class="scroll"><table><thead><tr><th>Slot</th><th>Best for you now</th><th>Also good</th><th>Next upgrade</th></tr></thead><tbody id="dbGear"></tbody></table></div>
+      <p class="muted" style="font-size:12px">Weapons are ranked by attack, armour by defense, accessories by level. Bonus stats from enhancing, gems or sets aren't counted.</p>
+    </section>
+  </div>
+  <div class="grid gpane" id="g-dbskills" hidden>
+    <section class="panel c12">
+      <h2>Skills <small id="dbsInfo"></small></h2>
+      <div class="tools"><select id="dbsClass"></select><input id="dbsSearch" placeholder="Search skill…" size="18">
+        <label class="muted" style="font-size:12px">Build plan for level <input id="dbsLevel" type="number" min="0" max="200" style="width:64px" placeholder="—"></label></div>
+      <div id="dbsPlan" class="plan"></div>
+      <div class="scroll" style="max-height:640px"><table><thead><tr><th>Skill</th><th class="num">Lv</th><th class="num">Cost to learn</th><th>Effect</th></tr></thead><tbody id="dbSkills"></tbody></table></div>
+    </section>
+  </div>
+  <div class="grid gpane" id="g-dbnpcs" hidden>
+    <section class="panel c12">
+      <h2>NPC locations <small id="dbnInfo"></small></h2>
+      <div class="tools"><input id="dbnSearch" placeholder="Search NPC or zone…" size="22"></div>
+      <div class="scroll" style="max-height:640px"><table><thead><tr><th>NPC</th><th>Where</th><th class="num">Position</th><th></th></tr></thead><tbody id="dbNpcs"></tbody></table></div>
+    </section>
+  </div>
+  <div class="grid gpane" id="g-dbzones" hidden>
+    <section class="panel c12">
+      <h2>Zones <small id="dbzInfo"></small></h2>
+      <div class="tools"><input id="dbzSearch" placeholder="Search zone…" size="20"></div>
+      <div class="scroll" style="max-height:640px"><table><thead><tr><th class="num">Id</th><th>Zone</th><th class="num">NPCs</th><th>Exits to</th><th></th></tr></thead><tbody id="dbZones"></tbody></table></div>
+    </section>
+  </div>
+</section>
+
+<!-- ============================================================ 3D WORLD -->
+<section class="tab" id="tab-world">
+  <div class="tools">
+    <select id="wZone"></select>
+    <button class="small" id="wMeBtn">📍 Where am I</button>
+    <label class="wchk"><input type="checkbox" id="wMe" checked> You &amp; route</label>
+    <label class="wchk"><input type="checkbox" id="wNpc" checked> NPCs</label>
+    <label class="wchk"><input type="checkbox" id="wMobs" checked> Monsters</label>
+    <label class="wchk"><input type="checkbox" id="wPortal" checked> Exits</label>
+    <label class="wchk"><input type="checkbox" id="wMarks" checked> Markers</label>
+    <label class="wchk"><input type="checkbox" id="wHeat"> Heatmap</label>
+    <label class="wchk"><input type="checkbox" id="wFollow"> Follow me</label>
+  </div>
+  <div class="tools" id="routeBar">
+    <span class="muted" style="font-size:12px">Route to</span>
+    <input id="rtTarget" list="rtTargets" placeholder="Zone or NPC…" size="24"><datalist id="rtTargets"></datalist>
+    <button class="small primary" id="rtGo">Plan route</button><button class="small" id="rtClear" hidden>Clear</button>
+    <span class="muted" id="rtInfo" style="font-size:12px"></span>
+  </div>
+  <ol class="rtlegs" id="rtLegs" hidden></ol>
+  <div class="replay" id="w3dReplay" hidden><b style="font-size:12px">Replay</b><button id="w3Play" class="small primary">▶</button><input type="range" id="w3Pos" min="0" max="1" value="0">
+    <select id="w3Speed"><option value="10">10×</option><option value="60" selected>60×</option><option value="300">300×</option><option value="1200">1200×</option></select>
+    <span class="muted mono" id="w3Time" style="font-size:12px"></span><button class="small" id="w3Close">Close replay</button></div>
+  <div class="muted notr" id="wInfo" style="font-size:12px;margin:-4px 0 8px"></div>
+  <div class="world-wrap"><canvas id="worldCv"></canvas><div id="worldLabels"></div><div class="world-tip" id="worldTip" hidden></div></div>
+  <p class="muted" style="font-size:12px;margin-top:8px">Drag to turn, right-drag to move, scroll to zoom. Terrain and maps come from the game's own map files; zones marked “flat” store their terrain in a format the tracker can't read yet.</p>
+</section>
+
+<!-- ============================================================ STATS -->
+<section class="tab" id="tab-stats">
+  <div class="kpis">
+    <div class="kpi"><label>Total played</label><div class="v" id="stTotal">—</div><div class="sub" id="stDays">&nbsp;</div></div>
+    <div class="kpi"><label>Current streak</label><div class="v" id="stStreak">—</div><div class="sub" id="stLongest">&nbsp;</div></div>
+    <div class="kpi"><label>Average session</label><div class="v" id="stAvg">—</div><div class="sub" id="stLongestSess">&nbsp;</div></div>
+    <div class="kpi"><label>Favourite time</label><div class="v" id="stFav">—</div><div class="sub" id="stFavDay">&nbsp;</div></div>
+    <div class="kpi"><label>Milestones</label><div class="v" id="stMs">—</div><div class="sub" id="stMsNext">&nbsp;</div></div>
+  </div>
+  <div class="grid">
+    <section class="panel c12" id="askPanel">
+      <h2>Ask the tracker <small>plain questions about your own saved data; nothing goes online</small></h2>
+      <form class="tools" id="askForm"><input id="askQ" size="60" maxlength="200" placeholder="e.g. which spot gave the most EXP last week?" autocomplete="off" style="flex:1;min-width:220px"><button class="primary">Ask</button></form>
+      <div class="tools" id="askEx" style="margin-top:4px"></div>
+      <div id="askOut" class="askout" hidden></div>
+    </section>
+    <section class="panel c12" id="cmpPanel">
+      <h2>Compare characters <small id="cmpInfo">side by side, from what the tracker saw</small></h2>
+      <div class="tools"><select id="cmpDays"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option></select></div>
+      <div class="scroll"><table><thead><tr><th>Character</th><th class="num">Level</th><th class="num">Played</th><th class="num">Active</th><th class="num">EXP</th><th class="num">EXP / hour</th><th class="num">Gold</th><th class="num">Gold / hour</th><th class="num">Gear score</th><th class="num">Deaths</th><th class="num">Quests</th><th>Best monster</th></tr></thead><tbody id="cmpRows"></tbody></table></div>
+    </section>
+    <section class="panel c7">
+      <h2>When you play <small>hours played per weekday and hour, all accounts</small></h2>
+      <div id="stGrid"></div>
+    </section>
+    <section class="panel c5">
+      <h2>Your characters</h2>
+      <div class="scroll"><table><thead><tr><th>Character</th><th class="num">Played</th><th class="num">Active</th><th class="num">Met</th><th>Main zone</th><th>Last</th></tr></thead><tbody id="stChars"></tbody></table></div>
+    </section>
+    <section class="panel c7">
+      <h2>Busy hours <small>average players around you, by zone and hour of day</small></h2>
+      <div id="stBusy"></div>
+    </section>
+    <section class="panel c5">
+      <h2>Boss spawns <small>learned from server notices</small></h2>
+      <div class="scroll" id="stBosses"></div>
+    </section>
+    <section class="panel c12">
+      <h2>Server activity <small>how busy it is around you, per weekday and hour</small></h2>
+      <div class="tools">
+        <select id="acMetric"><option value="met">Players met per hour played</option><option value="near">Average players around you</option></select>
+        <select id="acTz"><option value="local">Your time</option><option value="server">Server time</option></select>
+        <select id="acDays"><option value="0">All time</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option></select>
+        <span class="muted" id="acInfo" style="font-size:12px"></span>
+      </div>
+      <div id="acGrid"></div>
+      <div class="aclegend" id="acLegend"></div>
+      <div class="acbest">
+        <div><h3>Busiest times</h3><div id="acBusy"></div></div>
+        <div><h3>Quietest times</h3><div id="acQuiet"></div></div>
+      </div>
+    </section>
+    <section class="panel c12">
+      <h2>Farming <small id="fmInfo">kills, deaths and your best spots, from the screen reader</small></h2>
+      <div id="fmForecast" class="forecast"></div>
+      <div class="tools"><span class="muted" style="font-size:12px">I have</span><select id="plHours"><option value="0.5">30 min</option><option value="1">1 hour</option><option value="2" selected>2 hours</option><option value="3">3 hours</option><option value="5">5 hours</option></select><button class="small primary" id="plGo">Suggest where to farm</button></div>
+      <div id="plOut" class="plan"></div>
+      <div class="grid">
+        <div class="c8"><h2 style="font-size:12px">Best spots by EXP per hour</h2>
+          <div class="tools"><label class="muted" style="font-size:12px">HP potion <select id="fmPotHp"></select></label><label class="muted" style="font-size:12px">MP potion <select id="fmPotMp"></select></label></div>
+          <div class="scroll" style="max-height:360px"><table><thead><tr><th>Zone</th><th class="num">Spot</th><th class="num">EXP / h</th><th class="num">Kills / h</th><th class="num">Potions / h</th><th class="num">Cost / h</th><th class="num">Drops / h</th><th class="num">Profit / h</th><th class="num">EXP per 1m</th><th class="num">Time</th><th></th></tr></thead><tbody id="fmSpots"></tbody></table></div>
+          <p class="muted" style="font-size:12px">Potions are counted when your HP or MP jumps up by 8 % of the bar or more between two looks. A healer's heal looks the same, so in a party this is an estimate. Prices: the chat's usual price, else the shop price.</p>
+          <p class="muted" style="font-size:12px">Drops: only your drops the server announces in the chat (the rare ones), at the chat's usual selling price. Profit = drops − potions.</p></div>
+        <div class="c4"><h2 style="font-size:12px">Deaths</h2><div id="fmDeathWhy" class="deathwhy"></div><div class="scroll" style="max-height:360px" id="fmDeaths"></div></div>
+      </div>
+    </section>
+    <section class="panel c12" id="charPanel">
+      <h2>Character <small id="chInfo2">from the Status window (C): your stats and skills</small></h2>
+      <div id="chStats"></div>
+      <div id="chSkills"></div>
+    </section>
+    <section class="panel c12" data-feature="gear">
+      <h2>Gear <small id="geInfo">from the item tooltips the screen reader sees while you hover over your gear</small> <button class="small" id="geClean" title="Remove rows without a slot or character, and items read for the wrong slot (they're read again the next time you hover over them)">Clean up</button></h2>
+      <div class="kpis" id="geGold"></div>
+      <div id="geUpg"></div>
+      <div id="geGoals"></div>
+      <div id="geScore"></div>
+      <div id="geLedger" data-feature="gold"></div>
+      <div class="scroll" style="max-height:460px"><table><thead><tr><th>Slot</th><th>Item</th><th class="num">+</th><th>Combined options</th><th>Element · awakening</th><th>Special</th><th class="num" title="What gear like this (same kind, level ±10, same enhance) is offered for in the trade chat, last 30 days">Chat price</th><th>Enhance history</th><th>Seen</th><th></th></tr></thead><tbody id="geRows"></tbody></table></div>
+      <p class="muted" style="font-size:12px">Open your inventory (Main Equip) and rest the mouse on each piece of gear for 2–3 seconds: the screen reader reads the tooltip. Read again later to see the enhance level change. The text recognition can misread a word; the item is matched to the game's item list.</p>
+    </section>
+    <section class="panel c12">
+      <h2>Goals <small id="glInfo">with a date: are you on pace?</small></h2>
+      <div class="tools"><select id="glKind"><option value="level">Level</option><option value="honor">Honor</option><option value="gold">Gold (for Ascension)</option><option value="custom">My own</option></select>
+        <input id="glTarget" type="number" min="0" placeholder="target" style="width:110px"><label class="muted" style="font-size:12px">by <input id="glBy" type="date"></label>
+        <select id="glChar"></select><input id="glLabel" placeholder="name (optional)" size="16" maxlength="60"><button class="small primary" id="glAdd">Add goal</button></div>
+      <div id="glList"></div>
+    </section>
+    <section class="panel c6">
+      <h2>Honor <small id="hoInfo">your Honor from the rankings, against the guide's Honor ranks</small></h2>
+      <div id="hoBody"></div>
+    </section>
+    <section class="panel c6">
+      <h2>Next Ascension <small id="asInfo">what it needs (Korean guide) and what you have</small></h2>
+      <div class="tools"><label class="muted" style="font-size:12px">I am <select id="asAsc"><option value="0">not ascended</option><option value="1">ASC 1</option><option value="2">ASC 2</option><option value="3">ASC 3</option><option value="4">ASC 4</option><option value="5">ASC 5</option><option value="6">ASC 6</option><option value="7">ASC 7</option></select></label>
+        <label class="muted" style="font-size:12px">gold <input id="asGold" type="number" min="0" style="width:120px"></label>
+        <label class="muted" style="font-size:12px">Ki <input id="asKi" type="number" min="0" style="width:110px"></label>
+        <label class="muted" style="font-size:12px">Sky Stones <input id="asStones" type="number" min="0" style="width:70px"></label></div>
+      <div id="asBody"></div>
+    </section>
+    <section class="panel c12" id="mobPanel">
+      <h2>Your monsters <small id="mbInfo">EXP per kill and per hour, time per kill and your damage, per monster type you fight</small></h2>
+      <div class="scroll" style="max-height:360px"><table><thead><tr><th>Monster</th><th class="num">Lv</th><th class="num">Kills</th><th class="num">EXP / kill</th><th class="num">EXP / hour</th><th class="num" title="From targeting it to the kill">Time / kill</th><th class="num" title="The game's monster HP divided by the time per kill">Damage / s</th><th title="Time per kill before and after your gear last changed">Gear change</th></tr></thead><tbody id="mbRows"></tbody></table></div>
+    </section>
+    <section class="panel c12" id="mazePanel" data-feature="maze">
+      <h2>Tiger Valley maze <small id="mzInfo">runs through the Nine Treasure Labyrinth and the inner barrier, from the screen reader</small></h2>
+      <div class="grid">
+        <div class="c7"><h2 style="font-size:12px">Runs</h2><div class="scroll" style="max-height:300px"><table><thead><tr><th>When</th><th class="num">Time</th><th class="num">EXP</th><th class="num">EXP / h</th><th class="num">Kills</th><th class="num">Deaths</th><th>Deepest</th></tr></thead><tbody id="mzRuns"></tbody></table></div></div>
+        <div class="c5"><h2 style="font-size:12px">What each part does to you <small>debuffs seen there</small></h2><div id="mzParts"></div></div>
+      </div>
+    </section>
+    <section class="panel c5">
+      <h2>Personal records <small>from the screen reader; beating one is an alert</small></h2>
+      <div id="recList"></div>
+    </section>
+    <section class="panel c7">
+      <h2>Rivals <small>your level next to players you pick, from the rankings</small></h2>
+      <div class="tools"><input id="rvNames" list="rvList" size="34" placeholder="Player names, separated by commas"><datalist id="rvList"></datalist><button class="small" id="rvSave">Save</button></div>
+      <div id="rvChart" class="chart"></div>
+      <table><thead><tr><th>Player</th><th class="num">Level</th><th class="num">This week</th><th class="num">30 days</th></tr></thead><tbody id="rvTable"></tbody></table>
+    </section>
+    <section class="panel c12">
+      <h2>Death replays &amp; drop pictures <small>the last looks before each death and the moment of a drop, from the screen reader</small></h2>
+      <div id="shViewer" class="shviewer" hidden>
+        <img id="shImg" alt="">
+        <div class="tools"><button class="small" id="shPlay">▶</button><input type="range" id="shPos" min="0" max="0" value="0" style="flex:1"><span class="muted" id="shTime" style="font-size:12px"></span><button class="small" id="shClose">×</button></div>
+      </div>
+      <div class="grid">
+        <div class="c4"><h2 style="font-size:12px">Death replays</h2><div class="scroll" style="max-height:360px" id="shDeaths"></div></div>
+        <div class="c8"><h2 style="font-size:12px">Drop pictures</h2><div class="scroll shgrid" style="max-height:360px" id="shDrops"></div></div>
+      </div>
+    </section>
+    <section class="panel c12">
+      <h2>Game updates <small id="ptInfo"></small></h2>
+      <div class="tools"><button class="small" id="ptCheck">Check for changes now</button><span class="muted" id="ptStatus" style="font-size:12px"></span></div>
+      <div id="ptList"></div>
+      <h3 style="font-size:13px;margin:14px 0 6px">What changed in the game database</h3>
+      <div id="dbChangeList"></div>
+    </section>
+    <section class="panel c12">
+      <h2>Milestones</h2>
+      <div id="stMilestones" class="msgrid"></div>
+    </section>
+  </div>
+</section>
+
+<!-- ============================================================ HOUSE -->
+<section class="tab" id="tab-house">
+  <div class="tools"><select id="hsPick"></select><button class="small" id="hsMine">Set as my house</button><span class="muted" id="hsInfo" style="font-size:12px"></span></div>
+  <div class="kpis">
+    <div class="kpi"><label>Members in the top lists</label><div class="v" id="hsMembers">—</div><div class="sub" id="hsRank">&nbsp;</div></div>
+    <div class="kpi"><label>Average level</label><div class="v" id="hsAvg">—</div><div class="sub" id="hsFaction">&nbsp;</div></div>
+    <div class="kpi"><label>Total honor</label><div class="v" id="hsHonor">—</div><div class="sub">&nbsp;</div></div>
+    <div class="kpi"><label>Members you've met</label><div class="v" id="hsMet">—</div><div class="sub">&nbsp;</div></div>
+  </div>
+  <div class="grid">
+    <section class="panel c7">
+      <h2>Members <small>from the public rankings and your notes</small></h2>
+      <div class="scroll tall"><table><thead><tr><th>Name</th><th class="num">Lv</th><th>Class</th><th class="num">Honor</th><th class="num">Levels/day</th><th class="num">Met</th></tr></thead><tbody id="hsList"></tbody></table></div>
+      <h3 style="margin:12px 0 4px">Joined &amp; left <small class="muted">from the game's messages in your chat</small></h3>
+      <div id="hsLog"></div>
+    </section>
+    <section class="panel c5">
+      <h2>Strength vs. rival houses <small>members in the top lists, 30 days</small></h2>
+      <div id="hsChart" class="chart"></div>
+    </section>
+    <section class="panel c12">
+      <h2>Activity <small>the last 14 days: met near you or writing in the chat</small></h2>
+      <div id="hsActivity"></div>
+    </section>
+  </div>
+</section>
+
+<!-- ============================================================ TRADES -->
+<section class="tab" id="tab-trades">
+  <div class="grid">
+    <section class="panel c4">
+      <h2>Log a drop or trade</h2>
+      <form id="trForm" class="setform">
+        <label>Type <span><select name="type"><option value="drop">Drop</option><option value="buy">Bought</option><option value="sell">Sold</option><option value="trade">Traded</option></select></span></label>
+        <label>Item <span><input name="item" required maxlength="80" style="width:180px" list="trItems"></span></label>
+        <label>Quantity <span><input name="qty" type="number" min="1" value="1"></span></label>
+        <label>Price (each) <span><input name="price" inputmode="numeric" style="width:120px" placeholder="optional"></span></label>
+        <label>With / from <span><input name="with" maxlength="40" style="width:140px" placeholder="player or NPC"></span></label>
+        <label>Note <span><input name="note" maxlength="200" style="width:180px"></span></label>
+        <div><button class="primary">Add</button> <span class="muted" style="font-size:12px">Zone and character are filled in for you.</span></div>
+      </form>
+      <datalist id="trItems"></datalist>
+      <h2 style="margin-top:18px">Totals</h2>
+      <div id="trTotals"></div>
+    </section>
+    <section class="panel c8">
+      <h2>History <small id="trInfo"></small></h2>
+      <div class="tools"><input id="trSearch" placeholder="Search…" size="16"><select id="trType"><option value="">All types</option><option value="drop">Drops</option><option value="buy">Bought</option><option value="sell">Sold</option><option value="trade">Traded</option></select></div>
+      <div class="scroll" style="max-height:620px"><table><thead><tr><th>When</th><th>Type</th><th>Item</th><th class="num">Qty</th><th class="num">Price</th><th>With</th><th>Where</th><th></th></tr></thead><tbody id="trList"></tbody></table></div>
+    </section>
+    <section class="panel c12">
+      <h2>Market prices <small id="mkInfo">from trade messages in the chat, read by the screen reader</small></h2>
+      <div class="grid">
+        <div class="c6"><h2 style="font-size:12px">Usual prices (last 30 days)</h2><div class="scroll" style="max-height:360px"><table><thead><tr><th>Item</th><th class="num">Selling for</th><th class="num">Buying for</th><th class="num">Offers</th></tr></thead><tbody id="mkStats"></tbody></table></div></div>
+        <div class="c6"><h2 style="font-size:12px">Latest offers</h2><div class="scroll" style="max-height:360px"><table><thead><tr><th>When</th><th>Player</th><th>Offer</th></tr></thead><tbody id="mkRecent"></tbody></table></div></div>
+      </div>
+      <h2 style="font-size:12px;margin-top:14px">Price watches <small>an alert when someone in the chat offers what you're after</small></h2>
+      <form class="tools" id="pwForm">
+        <input name="item" list="trItems" placeholder="Item" maxlength="80" size="24" required>
+        <select name="side"><option value="sell">someone sells for at most</option><option value="buy">someone buys for at least</option></select>
+        <input name="price" placeholder="150m, 3.8b…" size="10" required>
+        <button class="small primary">Watch</button>
+      </form>
+      <div id="pwList"></div>
+    </section>
+    <section class="panel c12" data-feature="market">
+      <h2>Market flips <small>buy low, sell high: from chat prices of the last 30 days and what NPCs pay</small></h2>
+      <div class="scroll" style="max-height:260px"><table><thead><tr><th>Item</th><th>How</th><th class="num">Buy at</th><th class="num">Sell at</th><th class="num">Margin</th><th class="num">Offers</th><th title="Usual price per day, last 30 days (green dot: the lowest)">30 days</th></tr></thead><tbody id="mfRows"></tbody></table></div>
+    </section>
+    <section class="panel c12" data-feature="party">
+      <h2>Party finder <small id="lfInfo">"LF party / need healer" posts in the chat, last 2 days</small></h2>
+      <div class="scroll" style="max-height:260px"><table><thead><tr><th>When</th><th>Who</th><th>Wants</th><th class="num">Levels</th><th>Where</th><th>Fits</th></tr></thead><tbody id="lfRows"></tbody></table></div>
+    </section>
+    <section class="panel c12">
+      <h2>Chat log <small id="chInfo">what the screen reader saw in the chat</small></h2>
+      <div class="tools"><input id="chSearch" placeholder="Search…" size="18"><input id="chWho" placeholder="Player…" size="12"><span class="muted" style="font-size:12px">Click a colour to be alerted about messages in it (whispers, house, party…).</span></div>
+      <div id="chColors" style="margin-bottom:8px"></div>
+      <div class="scroll" style="max-height:480px"><table><thead><tr><th>When</th><th></th><th>Player</th><th>Message</th></tr></thead><tbody id="chList"></tbody></table></div>
+    </section>
+    <section class="panel c12">
+      <h2>Server drop announcements <small id="drInfo">read from the chat by the screen reader</small></h2>
+      <div class="grid">
+        <div class="c5"><h2 style="font-size:12px">Most announced items</h2><div class="scroll" style="max-height:360px"><table><thead><tr><th>Item</th><th class="num">Seen</th><th>From</th></tr></thead><tbody id="drItems"></tbody></table></div></div>
+        <div class="c7"><h2 style="font-size:12px">Latest</h2><div class="scroll" style="max-height:360px"><table><thead><tr><th>When</th><th>Player</th><th>Item</th><th>From</th></tr></thead><tbody id="drRecent"></tbody></table></div></div>
+      </div>
+      <h2 style="font-size:12px;margin-top:14px">Drop table by monster <small>what each monster was announced dropping (the real drop table stays on the game server)</small></h2>
+      <div class="tools"><input id="drMob" placeholder="Monster…" size="18"></div>
+      <div class="scroll" style="max-height:420px" id="drMobs"></div>
+    </section>
+  </div>
+</section>
+
+<!-- ============================================================ WEEKLY REPORT -->
+<section class="tab" id="tab-report">
+  <div class="tools"><select id="repWeek"></select><span class="muted" id="repRange" style="font-size:12px"></span><a class="btnlink" id="repSave" href="/api/report.html" style="margin-left:auto">Save as a page</a></div>
+  <div class="kpis">
+    <div class="kpi"><label>Played</label><div class="v" id="rpPlay">—</div><div class="sub" id="rpPlaySub">&nbsp;</div></div>
+    <div class="kpi"><label>Tracked sessions</label><div class="v" id="rpSess">—</div><div class="sub" id="rpActive">&nbsp;</div></div>
+    <div class="kpi"><label>Players met</label><div class="v" id="rpMet">—</div><div class="sub" id="rpNew">&nbsp;</div></div>
+    <div class="kpi"><label>Danger alerts</label><div class="v" id="rpDanger">—</div><div class="sub" id="rpWatched">&nbsp;</div></div>
+    <div class="kpi"><label>Distance</label><div class="v" id="rpDist">—</div><div class="sub">&nbsp;</div></div>
+    <div class="kpi"><label>EXP gained</label><div class="v" id="rpExp">—</div><div class="sub" id="rpKills">&nbsp;</div></div>
+  </div>
+  <div class="grid">
+    <section class="panel c12" id="rpMinePanel" hidden><h2>Your week <small>potions, enhancing, maze runs and Honor</small></h2><div class="kpis" id="rpMine"></div></section>
+    <section class="panel c6"><h2>Play time per day</h2><div id="rpDays" class="chart"></div></section>
+    <section class="panel c6"><h2>Where you played</h2><div class="zonebar" id="rpZoneBar"></div><table><tbody id="rpZones"></tbody></table></section>
+    <section class="panel c6"><h2>Who you met most</h2><table><thead><tr><th>Name</th><th>Faction</th><th class="num">Sessions</th><th class="num">Near you</th></tr></thead><tbody id="rpPlayers"></tbody></table></section>
+    <section class="panel c6"><h2>Session recaps</h2><div class="scroll" id="rpRecaps"></div></section>
+    <section class="panel c4"><h2>Deaths <small id="rpDeathInfo"></small></h2><table><tbody id="rpDeaths"></tbody></table></section>
+    <section class="panel c4"><h2>Luck <small>enchanting, combining, enhancing</small></h2><table><tbody id="rpLuck"></tbody></table></section>
+    <section class="panel c4"><h2>Best monsters <small>all you fought</small></h2><table><tbody id="rpMobs"></tbody></table></section>
+    <section class="panel c4"><h2>Fastest levelling</h2><table><tbody id="rpFast"></tbody></table></section>
+    <section class="panel c4"><h2>Honor gained</h2><table><tbody id="rpHonor"></tbody></table></section>
+    <section class="panel c4"><h2>Rank changes <small id="rpFac"></small></h2><table><tbody id="rpClimb"></tbody></table></section>
+    <section class="panel c12"><h2>Price changes <small>usual selling price in the chat, against the week before</small></h2><table><thead><tr><th>Item</th><th class="num">Week before</th><th class="num">This week</th><th class="num">Change</th><th class="num">Offers</th></tr></thead><tbody id="rpMovers"></tbody></table></section>
+  </div>
+</section>
+
+<!-- ============================================================ HELP -->
+<section class="tab" id="tab-help">
+  <div class="grid">
+    <nav class="panel c3 helpnav notr" id="helpNav"></nav>
+    <section class="panel c9 helpbody notr" id="helpBody"></section>
+  </div>
+</section>
+
+<!-- ============================================================ SETTINGS -->
+<section class="tab" id="tab-settings">
+  <div class="grid">
+    <section class="panel c12" id="setupPanel">
+      <h2>Setup check <small id="suInfo">is everything on this PC set up?</small></h2>
+      <div id="suList"></div>
+    </section>
+    <section class="panel c6">
+      <h2>Play time goals &amp; limits <small id="setToday"></small></h2>
+      <form id="setForm" class="setform">
+        <label>Daily goal <span><input name="goalHours" type="number" min="0" max="24" step="0.5"> hours</span><small>Alert when you reach it. 0 = off.</small></label>
+        <label>Daily limit <span><input name="limitHours" type="number" min="0" max="24" step="0.5"> hours</span><small>Alert when you hit it, then every 15 minutes. 0 = off.</small></label>
+        <label>Reminder every <span><input name="remindEveryHours" type="number" min="0" max="12" step="0.5"> hours</span><small>"You've played 3h today". 0 = off.</small></label>
+        <label>Break reminder after <span><input name="breakMinutes" type="number" min="0" max="600" step="15"> minutes</span><small>of play in a row, then every 30 minutes. 0 = off.</small></label>
+        <label>A break is <span><input name="breakPauseMinutes" type="number" min="2" max="60" step="1"> minutes</span><small>AFK or with the game closed: the count starts again.</small></label>
+        <label>Count as AFK after <span><input name="afkMinutes" type="number" min="1" max="60" step="1"> minutes</span><small>With no movement, skill use or map change.</small></label>
+        <h2 style="margin-top:10px">Danger alert</h2>
+        <label>Alert when <span><input name="dangerCount" type="number" min="1" max="20" step="1"> enemies</span><small>arrive near you at about the same time…</small></label>
+        <label>within <span><input name="dangerWindowSec" type="number" min="5" max="300" step="5"> seconds</span><small>At most one danger alert every 2 minutes.</small></label>
+        <label>Your faction <span><select name="myFaction"><option value="">From my character</option><option>The Order</option><option>The Chaos</option></select></span><small id="setFacHint">Used to tell enemies from allies.</small></label>
+        <label>Unknown players <span><select name="dangerUnknown"><option value="false">Ignore</option><option value="true">Count as possible enemies</option></select></span><small>Most players have no known faction (only ranked players and your notes do).</small></label>
+        <div><button class="primary">Save</button> <span class="muted" id="setSaved" style="font-size:12px"></span></div>
+      </form>
+      <p class="muted" style="font-size:12px">Play time counts every account on this PC, from the game's own login log. Goals and limits only alert while the game is running.</p>
+    </section>
+
+    <section class="panel c6">
+      <h2>Startup &amp; overlay</h2>
+      <label class="toggle"><input type="checkbox" id="setAutostart"> <span><b>Start with Windows</b><small>Runs the tracker in the system tray when you log in, with no console window. The tray icon shows alert notifications and has Play / Overlay / Quit in its right-click menu.</small></span></label>
+      <label class="toggle"><input type="checkbox" id="setAutoOverlay"> <span><b>Open the overlay automatically</b><small>Opens when the game starts and closes when it exits. The game must run windowed or borderless.</small></span></label>
+      <div class="tools" style="margin-top:8px"><button id="btnOverlayOpen">Open overlay now</button><button id="btnOverlayClose">Close overlay</button></div>
+
+      <h2 style="margin-top:22px">Export &amp; backup</h2>
+      <div class="tools">
+        <a class="btnlink primary" href="/api/export.xlsx">Download Excel workbook</a>
+        <a class="btnlink" href="/api/backup" id="btnBackup">Back up data now</a>
+      </div>
+      <p class="muted" style="font-size:12px">The workbook has sheets for sessions, encounters, daily play time, rankings history, player notes, alerts, trades, boss spawns, the gold ledger, quest history and the gear log. Backups are saved as a zip in the <span class="mono">backups</span> folder and downloaded; to restore one, unzip it over the project folder while the tracker is stopped.</p>
+      <div class="scroll" style="max-height:180px"><table><thead><tr><th>Backup</th><th class="num">Size</th><th>Made</th></tr></thead><tbody id="backupList"></tbody></table></div>
+      <div class="setgrid" style="margin-top:12px">
+        <label>Daily backup folder <input data-set="backupDir" placeholder="e.g. C:\Users\you\OneDrive\SoF backups"><small id="bkState">Leave empty to switch off. A backup is made once a day.</small></label>
+        <label>Keep <span><input data-set="backupKeep" type="number" min="1" max="365" style="width:70px"> days</span></label>
+        <div><button class="small primary" id="btnSaveBackup">Save backup settings</button> <button class="small" id="btnBackupSync" title="A copy outside this PC: in the shared friends folder, kept 7 days">Use the friends folder</button></div>
+      </div>
+      <p class="muted" id="bkSyncNote" style="font-size:12px" hidden>The backup goes into the shared friends folder (a subfolder with your name), kept 7 days. Friends who share that folder can open it: it holds everything the tracker knows, including your chat log, whispers and player notes. Use your own cloud folder instead if you'd rather they didn't.</p>
+    </section>
+
+    <section class="panel c6">
+      <h2>Language &amp; voice</h2>
+      <div class="setgrid">
+        <label>Language <select id="setLang"></select><small>Game names (zones, monsters, items, classes) stay in English, as in the game.</small></label>
+        <label>Voice alerts <select id="setVoice"><option value="off">Off</option><option value="important">Danger, watched players, bosses &amp; maintenance</option><option value="all">All alerts</option></select><small>Spoken by this browser / the overlay, in the language above. Set per device.</small></label>
+        <div><button class="small" id="btnVoiceTest">Test voice</button></div>
+      </div>
+      <h2 style="margin-top:22px">In-game hotkeys</h2>
+      <p class="muted" style="font-size:12px;margin-top:0">Work while the game has focus, as long as the tray icon is running (Start with Windows, or <span class="mono">tray.vbs</span>).</p>
+      <table><tbody>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd></td><td>Mark the spot where you stand on the map</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd></td><td>Show / hide the overlay</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd></td><td>Repeat the last alert (with voice)</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></td><td>Say your HP, EXP, time to the next level and the next boss</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd></td><td>+1 quest item: for the item you're collecting on your quest trip (when the game shows no pickup message)</td></tr>
+      </tbody></table>
+      <h2 style="margin-top:22px">Streaming overlay (OBS)</h2>
+      <p class="muted" style="font-size:12px;margin-top:0">In OBS add a <b>Browser source</b> with this address, size 360 × 420. The background is transparent.</p>
+      <div class="note-box mono" style="color:var(--text)">http://localhost:7777/stream</div>
+      <p class="muted" style="font-size:12px">Small widgets to place anywhere in your layout (Browser source, about 300 × 80, transparent):</p>
+      <table class="mono" style="font-size:12px"><tbody>
+        <tr><td>http://localhost:7777/widget?show=exph</td><td class="muted" style="font-family:Inter">EXP per hour</td></tr>
+        <tr><td>http://localhost:7777/widget?show=kills</td><td class="muted" style="font-family:Inter">Kills this session</td></tr>
+        <tr><td>http://localhost:7777/widget?show=drop</td><td class="muted" style="font-family:Inter">Last drop of you or your party</td></tr>
+        <tr><td>http://localhost:7777/widget?show=hp</td><td class="muted" style="font-family:Inter">HP and MP bars</td></tr>
+        <tr><td>http://localhost:7777/widget?show=goal</td><td class="muted" style="font-family:Inter">Today's EXP goal</td></tr>
+        <tr><td>http://localhost:7777/widget?show=level</td><td class="muted" style="font-family:Inter">Time to the next level</td></tr>
+      </tbody></table>
+    </section>
+
+    <section class="panel c6">
+      <h2>Phone &amp; Discord alerts <small id="ntState"></small></h2>
+      <div class="setgrid" id="ntForm">
+        <label>ntfy topic <input data-nt="ntfyTopic" placeholder="e.g. sof-yourname-7k2q"><small>Install the free <b>ntfy</b> app on your phone and subscribe to the same topic. Pick something hard to guess: anyone who knows it can read it.</small></label>
+        <label>ntfy server <input data-nt="ntfyServer" placeholder="https://ntfy.sh"></label>
+        <label>Telegram bot token <input data-nt="telegramToken" type="password" placeholder="from @BotFather"><small>Create a bot with @BotFather, send it a message, then fill in your chat id.</small></label>
+        <label>Telegram chat id <input data-nt="telegramChat" placeholder="e.g. 123456789"></label>
+        <label>Discord webhook <input data-nt="discordWebhook" type="password" placeholder="https://discord.com/api/webhooks/…"><small>Channel settings → Integrations → Webhooks → New webhook → Copy URL.</small></label>
+        <label>Send these <div class="kinds" id="ntKinds"></div></label>
+        <label>Only when away <select data-nt="onlyWhenAway"><option value="false">Always</option><option value="true">Only while the game is closed or I'm AFK</option></select></label>
+        <label>Quiet hours <span><select id="qtFrom"><option value="-1">off</option></select> – <select id="qtTo"><option value="-1">off</option></select></span><small>Nothing is sent then, except disconnects and deaths. The dashboard still shows everything.</small></label>
+        <div><button class="small primary" id="btnNtSave">Save</button> <button class="small" id="btnNtTest">Send a test</button> <span class="muted" id="ntMsg" style="font-size:12px"></span></div>
+      </div>
+      <p class="muted" style="font-size:12px">Tokens and webhook addresses stay on this PC (data\notify.json) and are only shown masked here.</p>
+      <h2 style="margin-top:18px">Discord commands <small id="dbState"></small></h2>
+      <details class="muted" style="font-size:12px"><summary style="cursor:pointer">How to set it up (5 minutes)</summary>
+        <ol style="margin:6px 0 0 18px;padding:0"><li>Open discord.com/developers/applications → New Application → give it a name.</li><li>Bot → Reset Token → copy the token and paste it below.</li><li>Save, then click the invite link that appears and add the bot to your own server.</li><li>Type /online, /boss, /whois, /today, /timers, /route, /screen, /chat, /whispers or /price in any channel. Only you see the answers.</li></ol></details>
+      <div class="setform" style="margin-top:8px">
+        <label>Bot token <input id="dbToken" type="password" placeholder="paste the bot token"></label>
+        <label>Who may ask <input id="dbAllowed" placeholder="Discord user ids, empty = only the bot's owner"></label>
+        <div><button class="small primary" id="btnDbSave">Save</button> <a class="btnlink" id="dbInvite" target="_blank" rel="noopener" hidden>Invite the bot to your server</a></div>
+        <div class="tools"><span class="muted" style="font-size:12px">Try a command:</span><select id="dbTryCmd"><option>online</option><option>boss</option><option>timers</option><option>today</option><option>whois</option><option>route</option><option>screen</option><option>chat</option><option>whispers</option><option>price</option></select><input id="dbTryArg" placeholder="name / place / item" size="14"><button class="small" id="btnDbTry">Try</button></div>
+        <pre id="dbTryOut" class="mono" style="white-space:pre-wrap;font-size:12px;margin:0" hidden></pre>
+      </div>
+    </section>
+
+    <section class="panel c6">
+      <h2>Friends sync <small id="frState"></small></h2>
+      <p class="muted" style="font-size:12px;margin-top:0">Share your watchlist, danger flags, player notes and map markers with friends through a folder you all have, such as a shared OneDrive, Dropbox or Google Drive folder. Nothing goes through any other server.</p>
+      <div class="setgrid">
+        <label>Shared folder <input data-set="syncDir" placeholder="e.g. C:\Users\you\OneDrive\SoF shared"><small>Leave empty to switch off.</small></label>
+        <label>Your name there <input data-set="syncName" maxlength="32" placeholder="e.g. Alex"></label>
+        <label>Live status <select data-set="shareLive"><option value="true">Share my zone, position and in-game / AFK status (party view)</option><option value="false">Don't share my live status</option></select></label>
+        <label>Market prices <select data-set="shareMarket"><option value="true">Pool trade offers from the chat with friends (better prices)</option><option value="false">Keep my trade offers to myself</option></select></label>
+        <label>Enhance tries <select data-set="shareEnhance"><option value="true">Pool enhance tries with friends (better odds)</option><option value="false">Keep my enhance tries to myself</option></select></label>
+        <div><button class="small primary" id="btnSaveSync">Save friends sync</button></div>
+      </div>
+      <div id="frList" style="margin-top:10px"></div>
+      <h2 style="margin-top:18px">Updates <small id="upVersion"></small></h2>
+      <p class="muted" style="font-size:12px;margin-top:0">The tracker checks for a new version when it starts and every 6 hours. Updates are signed: a setup is only installed when it matches the fingerprint the publisher signed.</p>
+      <div class="tools"><button class="small" id="btnUpCheck">Check for updates now</button><span class="muted" id="upMsg" style="font-size:12px"></span></div>
+    </section>
+
+    <section class="panel c12">
+      <h2>Clean up data <small>a backup is made automatically before every clean-up</small></h2>
+      <div class="grid">
+        <div class="c5">
+          <h2 style="font-size:12px">Delete sessions</h2>
+          <div class="scroll" style="max-height:220px"><table><tbody id="cuSessions"></tbody></table></div>
+          <div class="tools" style="margin-top:8px"><button class="small danger" id="btnCuDelete">Delete selected sessions</button></div>
+        </div>
+        <div class="c4">
+          <h2 style="font-size:12px">Merge characters</h2>
+          <p class="muted" style="font-size:12px;margin-top:0">For a renamed character: move all sessions of one name onto another.</p>
+          <div class="tools"><select id="cuFrom"></select><span class="muted">→</span><select id="cuTo"></select></div>
+          <button class="small" id="btnCuMerge">Merge</button>
+          <h2 style="font-size:12px;margin-top:16px">Reset one kind of data</h2>
+          <div class="tools"><select id="cuWhat">
+            <option value="heatmap">Heatmap</option><option value="busy">Busy hours</option><option value="activity">Server activity</option><option value="alerts">Alert log</option><option value="bosses">Boss history</option>
+            <option value="rankings">Rankings history (keeps current boards)</option><option value="trades">Trades & drops</option><option value="waypoints">Map markers</option>
+            <option value="notes">Player notes</option><option value="watchlist">Watchlist</option><option value="threats">Danger flags</option><option value="milestones">Milestones</option>
+            <option value="encounters">Encounter history</option><option value="sessions">All sessions</option></select>
+            <button class="small danger" id="btnCuReset">Reset</button></div>
+        </div>
+        <div class="c3">
+          <h2 style="font-size:12px">Report a problem</h2>
+          <p class="muted" style="font-size:12px;margin-top:0">Downloads a zip with the tracker's logs, settings (without tokens) and the last part of the game log, to send along with a description of what went wrong.</p>
+          <a class="btnlink" href="/api/diagnostics">Download diagnostics</a>
+          <h2 style="font-size:12px;margin-top:16px">Move or share your setup</h2>
+          <p class="muted" style="font-size:12px;margin-top:0">One file with your settings, watchlist, danger flags, player notes, map markers, price watches, labels and checklist. Importing adds to what is here; nothing is removed.</p>
+          <label class="wchk" style="font-size:12px"><input type="checkbox" id="suSecrets"> Include tokens and webhooks (only for your own other PC)</label>
+          <div class="tools"><a class="btnlink" id="suExport" href="/api/setup-export">Export setup</a><label class="btnlink" style="cursor:pointer">Import setup…<input type="file" id="suImport" accept=".json,application/json" hidden></label></div>
+          <div class="muted" id="suMsg" style="font-size:12px"></div>
+        </div>
+      </div>
+    </section>
+    <section class="panel c12" id="screenPanel">
+      <h2>Screen reader <small id="srStatus"></small></h2>
+      <p class="muted" style="font-size:12px;margin-top:0">Looks at the game window every few seconds, the way you do, and reads HP, MP and EXP from the screen plus the loot announcements in the chat. It uses the text recognition built into Windows and never touches the game itself. Run the game in a window or borderless window; it keeps reading while other windows cover the game, but not while it is minimised. Only the numbers, the announcements, and the chat log and pictures you switch on below are kept.</p>
+      <div class="tools">
+        <label class="wchk"><input type="checkbox" id="srOn"> Read the game screen</label>
+        <label class="muted" style="font-size:12px">every <select id="srEvery"><option value="2">2 s</option><option value="3">3 s</option><option value="5">5 s</option><option value="10">10 s</option></select></label>
+        <label class="muted" style="font-size:12px">low HP alert <select id="srLowHp"><option value="0">off</option><option value="20">below 20%</option><option value="30">below 30%</option><option value="50">below 50%</option></select></label>
+      </div>
+      <h2 style="font-size:12px;margin-top:14px">While you're away</h2>
+      <p class="muted" style="font-size:12px;margin-top:0">Alerts show up here and, if you set them up under phone alerts, on your phone or in Discord.</p>
+      <div class="tools">
+        <label class="wchk"><input type="checkbox" id="srWhisper"> Whispers</label>
+        <label class="wchk"><input type="checkbox" id="srMention"> Someone writes my name</label>
+        <label class="wchk"><input type="checkbox" id="srHud"> Logged out or disconnected</label>
+        <label class="muted" style="font-size:12px">EXP stopped while farming <select id="srStuck"><option value="0">off</option><option value="5">5 min</option><option value="10">10 min</option><option value="20">20 min</option><option value="30">30 min</option></select></label>
+        <label class="wchk"><input type="checkbox" id="srEffect"> Stunned / poisoned while AFK</label>
+        <label class="wchk"><input type="checkbox" id="srBuffEnd"> A buff runs out</label>
+        <label class="muted" style="font-size:12px">players arriving on the minimap while AFK <select id="srMini"><option value="0">off</option><option value="3">3 or more</option><option value="5">5 or more</option><option value="10">10 or more</option></select></label>
+        <label class="muted" style="font-size:12px">party member HP <select id="srParty"><option value="0">off</option><option value="20">below 20%</option><option value="30">below 30%</option><option value="50">below 50%</option></select></label>
+      </div>
+      <div class="tools">
+        <label class="wchk"><input type="checkbox" id="srReplay"> Death replays</label>
+        <label class="muted" style="font-size:12px">drop pictures <select id="srShots"><option value="off">off</option><option value="mine">mine, my party's and friends'</option><option value="all">every announced drop</option></select></label>
+        <label class="wchk"><input type="checkbox" id="srChat"> Keep a chat log</label>
+        <label class="muted" style="font-size:12px">deals in the chat <select id="srDeal"><option value="0">off</option><option value="20">20% better than usual</option><option value="30">30% better than usual</option><option value="50">50% better than usual</option></select></label>
+      </div>
+      <div class="tools">
+        <label class="wchk"><input type="checkbox" id="srAlts"> Also read my other game windows</label>
+        <label class="wchk"><input type="checkbox" id="srPeekLan"> Show the game screen on my phone too</label>
+        <a class="btnlink" href="/phone" target="_blank" rel="noopener">Phone page</a>
+      </div>
+      <div class="tools">
+        <label class="wchk"><input type="checkbox" id="srWatchOnline"> Watched players writing in the chat</label>
+        <label class="muted" style="font-size:12px">chat words <input id="srWords" size="34" maxlength="400" placeholder="LF party, LFM, Special Sky Crystal…"></label>
+      </div>
+      <div class="tools">
+        <label class="muted" style="font-size:12px">daily EXP goal <select id="srGoal"><option value="0">off</option><option value="5">+5%</option><option value="10">+10%</option><option value="20">+20%</option><option value="30">+30%</option><option value="50">+50%</option><option value="100">a level</option></select></label>
+        <label class="wchk"><input type="checkbox" id="srPace"> Read faster while fighting, slower while AFK</label>
+        <span class="muted" id="srPaceNow" style="font-size:12px"></span>
+        <label class="muted" style="font-size:12px">daily digest at <select id="srDigest"><option value="-1">off</option></select></label>
+        <button class="small" id="srDigestTry">Preview</button>
+      </div>
+      <pre id="srDigestOut" class="mono" style="white-space:pre-wrap;font-size:12px;margin:0" hidden></pre>
+    </section>
+    <section class="panel c12" id="healthPanel">
+      <h2>Tracker health <small id="hlInfo">what the tracker and its screen readers cost your PC, the last 24 hours</small></h2>
+      <div class="grid">
+        <div class="c6"><h2 style="font-size:12px">CPU (% of the whole processor)</h2><div id="hlCpu" class="chart"></div></div>
+        <div class="c6"><h2 style="font-size:12px">Memory (MB)</h2><div id="hlMem" class="chart"></div></div>
+      </div>
+    </section>
+    <section class="panel c12" id="gamePerfPanel">
+      <h2>How the game runs <small id="gpInfo">the game's CPU, memory and freezes, the last 24 hours</small></h2>
+      <div class="grid">
+        <div class="c4"><h2 style="font-size:12px">Game CPU (% of the whole processor)</h2><div id="gpCpu" class="chart"></div></div>
+        <div class="c4"><h2 style="font-size:12px">Game memory (MB)</h2><div id="gpMem" class="chart"></div></div>
+        <div class="c4"><h2 style="font-size:12px">Freezes <small class="muted">the window stopped responding</small></h2><div class="scroll" style="max-height:170px"><table><tbody id="gpFreezes"></tbody></table></div></div>
+      </div>
+      <p class="muted" style="font-size:12px;margin-bottom:0">Frames per second can only be measured from inside the game, which the tracker never touches, so it watches for freezes instead: every 5 seconds Windows says whether the game window still answers. Freezes of 10 seconds or more also show on the session timeline.</p>
+    </section>
+    <section class="panel c12" id="storagePanel">
+      <h2>Storage <small id="stoInfo">what the screen reader keeps</small></h2>
+      <div id="stoDisk" class="muted" style="font-size:12px;max-width:420px;margin-bottom:8px"></div>
+      <table><thead><tr><th>What</th><th class="num">Entries</th><th class="num">Size</th><th></th></tr></thead><tbody id="stoList"></tbody></table>
+      <h3 style="margin:12px 0 4px">Automatic tidy-up <small class="muted">death replays, drop pictures, debug captures and old session timelines, oldest first, once a day</small></h3>
+      <div class="tools"><label class="muted" style="font-size:12px">keep at most <input id="tdMB" type="number" min="0" max="100000" step="50" style="width:80px"> MB</label>
+        <label class="muted" style="font-size:12px">and nothing older than <input id="tdDays" type="number" min="0" max="3650" step="1" style="width:70px"> days</label>
+        <button class="small" id="tdNow">Tidy up now</button><span class="muted" style="font-size:12px">0 = no limit</span></div>
+      <div class="muted" id="tdInfo" style="font-size:12px"></div>
+      <div class="tools" style="margin-top:8px"><span class="muted" style="font-size:12px">Export as a spreadsheet (CSV):</span><a class="btnlink" href="/api/export/chat.csv">Chat log</a><a class="btnlink" href="/api/export/offers.csv">Trade offers</a><a class="btnlink" href="/api/export/drops.csv">Drop announcements</a></div>
+    </section>
+    <section class="panel c12" id="calPanel">
+      <h2>Calendar <small>boss spawns, events, maintenance and checklist resets</small></h2>
+      <p class="muted" style="font-size:12px;margin-top:0">Subscribe to this address in a calendar app on this PC (Outlook, Thunderbird, Windows Calendar) and it stays up to date by itself. Google Calendar and phone calendars can't reach your PC: download the file and import it there instead (that copy doesn't update).</p>
+      <div class="tools"><input id="calUrl" class="mono" readonly size="38" value="http://localhost:7777/calendar.ics"><button class="small" id="calCopy">Copy address</button><a class="btnlink" href="/calendar.ics?download=1">Download .ics</a></div>
+    </section>
+    <section class="panel c12" id="featuresPanel">
+      <h2>Features <small>switch off what you don't use: the tracker skips that work and hides it</small></h2>
+      <div id="featList" class="featlist"></div>
+      <h3 style="margin:12px 0 4px">Alert noise <small class="muted">muted alerts still go to the alert log, without a pop-up, sound or phone message</small></h3>
+      <div class="tools"><label class="wchk"><input type="checkbox" id="anQuiet"> Quiet farming: only deaths, danger, disconnects, whispers and session recaps make noise</label>
+        <label class="muted" style="font-size:12px">at most <select id="anCap"><option value="0">no limit</option><option value="3">3</option><option value="5">5</option><option value="10">10</option><option value="20">20</option></select> pop-ups per alert type per day</label></div>
+      <div id="anMute" class="featlist"></div>
+    </section>
+    <section class="panel c12" id="readerCheckPanel">
+      <h2>Reader check <small id="rcInfo">when each part of the screen reading last worked</small></h2>
+      <div id="rcList" class="rclist"></div>
+      <h3 style="margin:14px 0 4px">Pickup messages <small class="muted">teach the tracker what the game says when you pick up an item</small></h3>
+      <div id="plList"></div>
+      <h3 style="margin:14px 0 4px">Debug captures <small class="muted">the game picture when a reader saw something it couldn't read</small></h3>
+      <div class="tools"><label class="wchk"><input type="checkbox" id="dbgOn"> keep captures (data\debug, the newest 40; only the game window)</label>
+        <a class="btnlink" href="/api/debug-bundle" id="dbgBundle">Download debug bundle</a><button class="small" id="dbgClear">Delete captures</button></div>
+      <div id="dbgList" class="dbglist"></div>
+    </section>
+    <section class="panel c12" id="selfCheckPanel">
+      <h2>Self-check <small id="scInfo">is everything the tracker reads still working?</small></h2>
+      <div class="tools"><button class="small primary" id="btnSelfCheck">Run self-check now</button><span class="muted" style="font-size:12px">Runs by itself at start-up, once a day and right after every game update.</span></div>
+      <div id="scList"></div>
+    </section>
+  </div>
+</section>
+
+<footer>Reads the client's own log and data files plus the official public rankings, and never touches the game process. Everything is saved in the <span class="mono">data</span> folder.</footer>
+
+<div id="toasts"></div>
+<div id="layDone" class="laydone" hidden><span>Arranging this tab: drag a panel by ⠿, or use ◀ ▶ and Hide.</span><button class="small" id="layReset">Reset this tab</button><button class="small primary" id="layFinish">Done</button></div>
+
+<dialog id="zDialog">
+  <form method="dialog" id="zForm">
+    <h3 id="zdTitle">Name this zone</h3>
+    <div class="muted" style="font-size:12px">Pick a place name from the game's own list, or type your own. Leave empty to clear.</div>
+    <div class="form"><label class="wide">Zone name<input name="name" list="zoneNameList" autocomplete="off" placeholder="Start typing, e.g. Southern Forest"></label></div>
+    <datalist id="zoneNameList"></datalist>
+    <div class="actions"><button value="cancel">Cancel</button><button value="save" class="primary">Save</button></div>
+  </form>
+</dialog>
+
+<dialog id="itemDialog" class="wide">
+  <div class="pf-head"><img id="idIcon" alt="" style="width:40px;height:40px"><h3 id="idName" class="notr"></h3>
+    <span style="margin-left:auto"><button class="small" id="idShop">🛒 Add to shopping list</button> <button class="small" onclick="this.closest('dialog').close()">Close</button></span></div>
+  <div class="pf-facts" id="idFacts"></div>
+  <p class="muted notr" id="idDesc" style="white-space:pre-line;font-size:13px"></p>
+  <div id="idMarket" class="note-box" hidden></div>
+  <div id="idTimes" class="note-box" hidden></div>
+  <div id="idFarm" hidden><h2>Where to farm it <small>announced drops in the chat</small></h2><div id="idFarmList"></div></div>
+  <div class="grid" style="margin-top:8px">
+    <div class="c4"><h2>Dropped by</h2><div id="idDrops"></div></div>
+    <div class="c4"><h2>Quest reward of</h2><div id="idRewardOf"></div></div>
+    <div class="c4"><h2>Needed for</h2><div id="idNeeded"></div></div>
+  </div>
+</dialog>
+
+<dialog id="profDialog" class="wide">
+  <div class="pf-head"><h3 id="pfName"></h3><span id="pfBadges"></span>
+    <span style="margin-left:auto;display:flex;gap:8px"><button id="pfWatch" class="small"></button><button id="pfEdit" class="small primary">Edit notes</button><button class="small" onclick="this.closest('dialog').close()">Close</button></span></div>
+  <div id="pfThreat"></div>
+  <div class="pf-facts" id="pfFacts"></div>
+  <div class="grid" style="margin-top:14px">
+    <div class="c6"><div class="muted" style="font-size:12px;margin-bottom:4px">Level (public rankings)</div><div id="pfLevel" class="chart"></div></div>
+    <div class="c6"><div class="muted" style="font-size:12px;margin-bottom:4px">Honor (public rankings)</div><div id="pfHonor" class="chart"></div></div>
+    <div class="c7"><h2>Meetings <small id="pfMeetInfo"></small></h2><div class="scroll" style="max-height:260px"><table><thead><tr><th>When</th><th>Your character</th><th>Zone</th><th class="num">Near you</th></tr></thead><tbody id="pfMeetings"></tbody></table></div></div>
+    <div class="c5"><h2>Zones</h2><div id="pfZones"></div><h2 style="margin-top:14px">Alerts about them</h2><div class="scroll" style="max-height:150px" id="pfAlerts"></div></div>
+    <div class="c12"><h2>Usually online <small id="pfSchedInfo"></small></h2><div id="pfSched"></div></div>
+  </div>
+</dialog>
+
+<dialog id="mDialog">
+  <form method="dialog" id="mForm">
+    <h3>Add a marker</h3>
+    <div class="muted" id="mdWhere" style="font-size:12px"></div>
+    <div class="form">
+      <label class="wide">Label<input name="label" maxlength="40" placeholder="e.g. Fox farm spot" required></label>
+      <label class="wide">Type<select name="kind"><option value="farm">⚔ Farm spot</option><option value="boss">💀 Boss spawn</option><option value="npc">❗ NPC / quest</option><option value="danger">⚠ Danger</option><option value="star">★ Other</option></select></label>
+      <label class="wide">Note<textarea name="note" maxlength="300" rows="3" placeholder="e.g. good at night, PK area after 20:00, needs a party"></textarea></label>
+    </div>
+    <div class="actions"><button value="cancel">Cancel</button><button value="save" class="primary">Add marker</button></div>
+  </form>
+</dialog>
+
+<dialog id="pDialog">
+  <form method="dialog" id="pForm">
+    <h3 id="pdName"></h3>
+    <div class="muted" id="pdSrc" style="font-size:12px"></div>
+    <div id="pdTrader" class="pdtrader"></div>
+    <div class="form">
+      <label>Level<input name="level" type="number" min="1" max="999"></label>
+      <label>Class<select name="cls"><option value="">—</option></select></label>
+      <label>Faction<select name="faction"><option value="">—</option><option>The Order</option><option>The Chaos</option></select></label>
+      <label>House<input name="house" maxlength="40"></label>
+      <label class="wide">Note<input name="note" maxlength="200" placeholder="e.g. PK'd me at Southern Forest"></label>
+    </div>
+    <div class="actions">
+      <div class="left"><button type="button" class="danger" id="pdClear">Clear notes</button><button type="button" id="pdWatch"></button></div>
+      <button value="cancel">Cancel</button>
+      <button value="save" class="primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="/js/core.js"></script>
+<script src="/js/live.js"></script>
+<script src="/js/history.js"></script>
+<script src="/js/guide.js"></script>
+<script src="/js/stats.js"></script>
+<script src="/js/social.js"></script>
+<script src="/js/settings.js"></script>
+<script src="/js/layout.js"></script>
+<script src="/js/main.js"></script>
+</body>
+</html>

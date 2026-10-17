@@ -1,0 +1,24 @@
+# Your own tracker data: sessions, chat log, whispers, notes, tokens (notify.json, discord-bot.json), backups.
+# Never commit these.
+/data/
+/backups/
+
+# Build output: setups go to GitHub Releases, not into the repository
+/dist/
+
+# Local settings and anything secret
+.env
+*.pem
+*.key
+*.pfx
+*.p12
+.sof-tracker-release/
+
+# Editors, Node, Windows
+node_modules/
+.vscode/
+.idea/
+*.log
+Thumbs.db
+desktop.ini
+.DS_Store

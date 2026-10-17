@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SoF Overlay</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
+<script src="/i18n-dict.js"></script>
+<script src="/i18n.js"></script>
+<script src="/update-gate.js"></script>
+<script src="/sounds.js"></script>
+<style>
+  :root { --bg: #0e0f13; --line: #2a2e3a; --text: #e6e3da; --muted: #8d8a80; --gold: #d6a84a; --jade: #4fbf9a; --crimson: #d4574b; --sky: #6aa7e0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 12px/1.35 Inter, system-ui, sans-serif; overflow: hidden; user-select: none; }
+  body { padding: 8px 10px; }
+  .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .zone { font-weight: 600; color: var(--gold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .muted { color: var(--muted); }
+  .mono { font-family: "JetBrains Mono", monospace; }
+  .sec { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 6px; }
+  .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin-bottom: 2px; }
+  .facbar { display: flex; height: 5px; border-radius: 3px; overflow: hidden; margin-top: 4px; background: #1c1f28; gap: 2px; }
+  .facbar span { display: block; height: 100%; }
+  .item { display: flex; justify-content: space-between; gap: 6px; padding: 1px 0; }
+  .item span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .soon { color: var(--crimson); }
+  .watch { color: var(--sky); }
+  .alert { position: fixed; left: 6px; right: 6px; bottom: 6px; background: #1c1f28; border: 1px solid var(--gold); border-radius: 6px; padding: 6px 8px; display: none; }
+  .alert b { display: block; }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--crimson); margin-right: 5px; }
+  .dot.on { background: var(--jade); }
+  .gauge { height: 4px; border-radius: 2px; background: #1c1f28; margin: 1px 0 3px; overflow: hidden; }
+  .gauge i { display: block; height: 100%; background: var(--crimson); }
+  .gauge.mp i { background: var(--sky); }
+  .low { color: var(--crimson); font-weight: 600; }
+  /* streaming mode (/stream, for an OBS browser source): transparent, larger, readable over any game scene */
+  html.obs, html.obs body { background: transparent; }
+  html.obs body { font-size: 15px; padding: 12px; text-shadow: 0 1px 3px #000, 0 0 8px rgba(0,0,0,.8); }
+  html.obs .sec { border-top-color: rgba(255,255,255,.18); }
+  html.obs .lbl { color: #d8d2c4; font-size: 12px; }
+  html.obs .muted { color: #d8d2c4; }
+  html.obs .alert { background: rgba(14,15,19,.82); }
+  html.obs .zone { font-size: 17px; }
+</style>
+</head>
+<body>
+  <div class="row"><span class="zone" id="zone">Connecting…</span><span class="mono muted" id="time"></span></div>
+  <div class="row" style="margin-top:3px"><span><span class="muted" id="srvLbl">Server</span> <span class="mono" id="srvClock"></span></span><span><span class="muted">You</span> <span class="mono" id="myClock"></span></span></div>
+  <div id="maint" class="item" style="display:none;color:var(--sky);margin-top:4px"></div>
+  <div id="danger" style="display:none;margin-top:6px;padding:4px 6px;border-radius:4px;background:#3a1512;color:#ffb4aa;font-weight:600"></div>
+  <div class="sec">
+    <div class="row"><span class="lbl">Nearby</span><span><span class="mono" id="near">—</span> <span class="muted" id="fac"></span></span></div>
+    <div class="facbar" id="facbar"></div>
+    <div id="watched"></div>
+  </div>
+  <div class="sec" id="clSec" style="display:none"><div class="lbl">Clients</div><div id="clients"></div></div>
+  <div class="sec" id="hpSec" style="display:none"><div class="lbl">HP / Party</div><div id="hp"></div></div>
+  <div class="sec" id="whSec" style="display:none"><div class="lbl">Whispers</div><div id="whispers"></div></div>
+  <div class="sec" id="cdSec" style="display:none"><div class="lbl">Goals</div><div id="cds"></div></div>
+  <div class="sec"><div class="lbl">Timers</div><div id="timers"></div></div>
+  <div class="sec"><div class="lbl">Effects</div><div id="buffs"></div></div>
+  <div class="alert" id="alert"></div>
+<script>
+const OBS = location.pathname === '/stream' || /[?&]obs=1/.test(location.search);
+if (OBS) document.documentElement.classList.add('obs');
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// the next stop of your quest trip: "⛏ Zombie Cat sample (Zombie Cat) 7/20 · Tiger Valley  ~13 kills"
+const questNextLine = (q, cls) => (q ? `<div class="${cls}"><span>${q.kind === 'collect' ? '⛏' : '💬'} ${esc(q.label)}${q.picked != null ? ` ${q.picked}/${q.need}` : ''} <span class="muted">· ${esc(q.zoneName || '')}</span></span><span class="mono">${q.killsLeft ? `~${q.killsLeft} ${t('kills')}${q.minutesLeft ? ` · ${q.minutesLeft}m` : ''}` : q.kind === 'collect' ? '' : t(q.kind === 'handin' ? 'hand in' : 'talk')}</span></div>` : '');
+const cd = (ms) => { if (ms <= 0) return t('now'); const s = Math.ceil(ms / 1000); return s >= 3600 ? `${Math.floor(s / 3600)}h${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}` : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+const dur = (ms) => { const m = Math.floor(ms / 60000); return m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m` : `${m}m`; };
+const goldShort = (v) => (v >= 1e9 ? `${(v / 1e9).toFixed(1)}b` : v >= 1e6 ? `${(v / 1e6).toFixed(1)}m` : v >= 1e3 ? `${Math.round(v / 1e3)}k` : String(Math.round(v)));
+const facKey = (f) => (/order/i.test(f || '') ? 'order' : /chaos/i.test(f || '') ? 'chaos' : 'unknown');
+const IMPORTANT = ['danger', 'watch', 'boss', 'maintenance', 'disconnect', 'whisper', 'party', 'stuck'];
+let S = null, off = 0, lastId = null, hideTimer = null;
+
+function beep(kind) {
+  if (OBS) return; // never make sound on stream
+  try { if (localStorage.getItem('sof.sound') === 'false') return; } catch { /* ignore */ }
+  if (window.SofSounds?.play(kind, S?.settings?.sounds)) return; // your sound for this alert type
+  try {
+    const a = new AudioContext(), o = a.createOscillator(), g = a.createGain();
+    o.type = 'triangle'; o.frequency.value = 880; g.gain.setValueAtTime(0.2, a.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.3);
+    o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime + 0.3);
+  } catch { /* blocked */ }
+}
+
+function speak(a) {
+  const mode = S?.settings?.voice || 'off';
+  if (OBS || !('speechSynthesis' in window) || mode === 'off' || (mode === 'important' && !IMPORTANT.includes(a.kind))) return;
+  const u = new SpeechSynthesisUtterance(tAlert(a.title).replace(/[⚠★🛠]/g, ''));
+  const want = LANGS[getLang()]?.speech || 'en-US';
+  const v = speechSynthesis.getVoices().find((x) => x.lang === want) || speechSynthesis.getVoices().find((x) => x.lang.startsWith(want.slice(0, 2)));
+  if (v) u.voice = v;
+  u.lang = want;
+  speechSynthesis.cancel(); speechSynthesis.speak(u);
+}
+
+function renderClocks() {
+  const d = new Date(Date.now() + off), tz = S?.serverTz || 'America/Los_Angeles';
+  const opt = { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' };
+  const abbr = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'short' }).formatToParts(d).find((p) => p.type === 'timeZoneName')?.value;
+  $('srvLbl').textContent = abbr || t('Server');
+  $('srvClock').textContent = d.toLocaleTimeString([], { ...opt, timeZone: tz });
+  $('myClock').textContent = d.toLocaleTimeString([], opt);
+}
+
+function render() {
+  renderClocks();
+  if (!S) return;
+  const tn = Date.now() + off, s = S.session, labels = S.labels || {};
+  const zn = (z) => labels.zones?.[z] || `Zone ${z}`;
+  $('zone').innerHTML = `<span class="dot ${S.game.running ? 'on' : ''}"></span>${esc(s.position ? zn(s.position.zone) : S.game.running ? t('In game') : t('Game not running'))}`;
+  $('time').textContent = s.startedAt && S.game.running ? dur(tn - s.startedAt) : '';
+  const near = s.players.filter((p) => p.nearby);
+  const fc = { order: 0, chaos: 0, unknown: 0 };
+  near.forEach((p) => fc[facKey(p.info?.faction)]++);
+  $('near').textContent = near.length;
+  $('fac').innerHTML = near.length ? `<span style="color:var(--sky)">${fc.order} ${t('Order')}</span> · <span style="color:var(--crimson)">${fc.chaos} ${t('Chaos')}</span>` : '';
+  $('facbar').innerHTML = [['order', 'var(--sky)'], ['chaos', 'var(--crimson)'], ['unknown', '#2a2e3a']].filter(([k]) => fc[k]).map(([k, c]) => `<span style="flex:${fc[k]};background:${c}"></span>`).join('');
+  const dg = S.danger || {};
+  $('danger').style.display = dg.enemies ? 'block' : 'none';
+  $('danger').textContent = `⚠ ${dg.enemies === 1 ? t('1 enemy nearby') : t('{n} enemies nearby', { n: dg.enemies })}`;
+  const mt = (S.maintenance || [])[0];
+  const showM = mt && (tn >= mt.start ? (!mt.end || tn < mt.end) : mt.start - tn < 24 * 3600000);
+  $('maint').style.display = showM ? 'flex' : 'none';
+  if (showM) $('maint').innerHTML = tn >= mt.start ? `<span>🛠 ${t('Maintenance now')}</span>` : `<span>🛠 ${t('Maintenance in')}</span><span class="mono">${cd(mt.start - tn)}</span>`;
+  const w = near.filter((p) => p.watched);
+  $('watched').innerHTML = w.map((p) => `<div class="item watch"><span>★ ${esc(p.name)}</span><span>${p.info?.level ? 'Lv ' + p.info.level : ''}</span></div>`).join('');
+  const boss = (S.bossNext || []).filter((b) => b.next - tn < 30 * 60000).slice(0, 1).map((b) => `<div class="item muted"><span>🐉 ${esc(b.boss)} (${t('estimate')})</span><span class="mono">~${cd(b.next - tn)}</span></div>`).join('');
+  // both game windows: the one that needs you in red
+  const cl = S.clients || [];
+  $('clSec').style.display = cl.length >= 2 ? 'block' : 'none';
+  $('clients').innerHTML = cl.map((c) => `<div class="item ${c.attention.length ? 'soon' : ''}"><span>${esc(c.character || '?')}${c.attention.length ? ` ⚠ ${esc(c.attention.map((w) => t(w)).join(', '))}` : c.afk ? ` · ${t('AFK')}` : ''}</span><span class="mono">${c.hpPct != null ? `${c.hpPct}%` : ''}</span></div>`).join('');
+  // passes running out, the next thing from the 24-hour plan, the maze run and auto-logged enhancing
+  const passes = (S.passes || []).filter((p) => p.end > tn).map((p) => `<div class="item ${p.end - tn < 10 * 60000 ? 'soon' : ''}"><span>⏱ ${esc(t(p.label))}</span><span class="mono">${cd(p.end - tn)}</span></div>`).join('');
+  const next = (S.dayNext || []).filter((x) => x.t > tn && x.kind !== 'pass').slice(0, 1).map((x) => `<div class="item muted"><span>${{ boss: '🐉', custom: '📌', event: '🎉', checklist: '☑️', maintenance: '🛠' }[x.kind] || '•'} ${esc(t(x.title))}${x.coming?.length ? ` (${x.coming.length})` : ''}</span><span class="mono">${cd(x.t - tn)}</span></div>`).join('');
+  const extra = [S.maze && `<div class="item"><span>🌀 ${t('Maze run')}</span><span class="mono">${cd(tn - S.maze.start)} · +${S.maze.exp.toFixed(1)}%</span></div>`,
+    S.enhanceAuto && `<div class="item"><span>⚒ ${t('Enhance log')}</span><span class="mono">+${S.enhanceAuto.level}</span></div>`,
+    questNextLine(S.questNext, 'item'),
+    // the first reader still to try in the game (the dashboard's "Try these" list)
+    S.tryNext?.length && `<div class="item muted"><span title="${esc(t(S.tryNext[0].tip))}">🧪 ${esc(t(S.tryNext[0].label))}</span><span class="mono">${S.tryNext.length}</span></div>`].filter(Boolean).join('');
+  $('timers').innerHTML = (S.timers.slice(0, 3).map((x) => `<div class="item ${x.endsAt - tn < 60000 ? 'soon' : ''}"><span title="${esc(x.text)}">${esc(x.title)}</span><span class="mono">${cd(x.endsAt - tn)}</span></div>`).join('') + passes + boss + next + extra) || `<span class="muted">${t('none')}</span>`;
+  // your HP / MP and your party's, from the screen reader
+  const sc = S.screen, pct = (a, b) => (a != null && b ? Math.round((a / b) * 100) : 0);
+  const party = sc?.party || [];
+  $('hpSec').style.display = sc && sc.hp != null ? 'block' : 'none';
+  if (sc && sc.hp != null) {
+    $('hp').innerHTML = `<div class="item"><span>${t('You')}</span><span class="mono">${sc.hp} / ${sc.hpMax}</span></div><div class="gauge"><i style="width:${pct(sc.hp, sc.hpMax)}%"></i></div>`
+      + (sc.mp != null ? `<div class="gauge mp"><i style="width:${pct(sc.mp, sc.mpMax)}%"></i></div>` : '')
+      + party.map((p) => `<div class="item ${p.hp < 30 ? 'low' : ''}"><span>${esc(p.name)}</span><span class="mono">${p.hp ? `${p.hp}%` : '✝'}</span></div><div class="gauge"><i style="width:${p.hp}%"></i></div>`).join('');
+  }
+  // whispers of the last 30 minutes (never on stream)
+  const wh = OBS ? [] : (S.alerts || []).filter((a) => a.kind === 'whisper' && tn - a.t < 30 * 60000).slice(-3).reverse();
+  $('whSec').style.display = wh.length ? 'block' : 'none';
+  $('whispers').innerHTML = wh.map((a) => `<div class="item"><span title="${esc(a.body)}"><b>${esc(tAlert(a.title))}</b> <span class="muted">${esc(a.body)}</span></span></div>`).join('');
+  // countdowns to your goals: the next level, today's EXP goal, the gold for your shopping list and gear goals
+  const cds = (S.countdowns || []).filter((c) => !OBS || c.kind !== 'gold'); // (your gold stays off stream)
+  $('cdSec').style.display = cds.length ? 'block' : 'none';
+  $('cds').innerHTML = cds.map((c) => `<div class="item"><span>${{ level: '▲', expGoal: '🎯', gold: '💰' }[c.kind] || '•'} ${esc(c.kind === 'level' && c.n ? t('Level {n}', { n: c.n }) : t(c.label))} <span class="muted">${esc(c.kind === 'gold' ? (c.gold ? t('{g} to go', { g: goldShort(c.gold) }) : t('enough gold')) : t('{p} to go', { p: c.left }))}</span></span><span class="mono">${c.playMs == null ? '' : c.playMs === 0 ? '✓' : `~${dur(c.playMs)}`}</span></div>`).join('');
+  $('buffs').innerHTML = S.buffs.slice(0, 5).map((b) => `<div class="item ${b.expiresAt - tn < 60000 ? 'soon' : ''}"><span>${esc(labels.buffs?.[b.id] || t('Effect #{id}', { id: b.id }))}</span><span class="mono">${cd(b.expiresAt - tn)}</span></div>`).join('') || `<span class="muted">${t('none')}</span>`;
+}
+
+function onAlerts() {
+  const maxId = S.alerts.length ? S.alerts[S.alerts.length - 1].id : 0;
+  if (lastId === null) { lastId = maxId; return; }
+  const fresh = S.alerts.filter((a) => a.id > lastId);
+  lastId = maxId;
+  if (!fresh.length) return;
+  const a = fresh[fresh.length - 1];
+  $('alert').innerHTML = `<b>${esc(tAlert(a.title))}</b><span class="muted">${esc(tAlert(a.body || ''))}</span>`;
+  $('alert').style.display = 'block';
+  clearTimeout(hideTimer); hideTimer = setTimeout(() => { $('alert').style.display = 'none'; }, 8000);
+  beep(a.kind);
+  speak(a);
+}
+
+startI18n();
+const es = new EventSource('/events?delta=1');
+es.onmessage = (e) => {
+  { const prev = S; S = JSON.parse(e.data); if (SofGate.onState(S)) { S = prev; return; } for (const k of S.same || []) S[k] = prev?.[k]; } off = S.now - Date.now();
+  if (S.settings?.lang && S.settings.lang !== getLang()) setLang(S.settings.lang); // follow the dashboard's language
+  onAlerts(); render();
+};
+es.onerror = () => { $('zone').textContent = t('Tracker offline…'); };
+setInterval(render, 500);
+</script>
+</body>
+</html>
