@@ -1,10 +1,20 @@
 {
-  "sequence": 4,
-  "latest": "1.48.0",
+  "sequence": 5,
+  "latest": "1.49.0",
   "minimum": "1.45.0",
   "offlineGraceHours": 168,
   "message": "",
   "releases": [
+    {
+      "version": "1.49.0",
+      "url": "https://github.com/zenixtra/sof-tracker/releases/download/v1.49.0/SoF-Tracker-Setup-1.49.0.exe",
+      "sha256": "d440882b49a54ab2437a94ff95b3f82575ad0270ae5216792c8c6d51b4ed219d",
+      "size": 778752,
+      "mandatory": false,
+      "date": "2026-10-18",
+      "notes": "SoF Tracker 1.49.0\n\n- Potion and ginseng counts on the hotbar are read correctly, including 4-digit counts (e.g. 1553 and 2248; \"2248\" used to be read as \"748\").\n- Counts the reader is unsure about are left out instead of shown as a wrong number.\n\nSHA-256 of SoF-Tracker-Setup-1.49.0.exe:\nd440882b49a54ab2437a94ff95b3f82575ad0270ae5216792c8c6d51b4ed219d",
+      "instructions": ""
+    },
     {
       "version": "1.48.0",
       "url": "https://github.com/zenixtra/sof-tracker/releases/download/v1.48.0/SoF-Tracker-Setup-1.48.0.exe",
@@ -47,5 +57,5 @@
     }
   ],
   "revoked": [],
-  "issuedAt": "2026-10-18T21:14:08.839Z"
+  "issuedAt": "2026-10-18T22:32:18.582Z"
 }
