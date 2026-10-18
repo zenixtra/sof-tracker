@@ -656,7 +656,7 @@
       <div id="plOut" class="plan"></div>
       <div class="grid">
         <div class="c8"><h2 style="font-size:12px">Best spots by EXP per hour</h2>
-          <div class="tools"><label class="muted" style="font-size:12px">HP potion <select id="fmPotHp"></select></label><label class="muted" style="font-size:12px">MP potion <select id="fmPotMp"></select></label></div>
+          <div class="tools"><label class="muted" style="font-size:12px">HP potion <select id="fmPotHp"></select></label><label class="muted" style="font-size:12px">MP potion <select id="fmPotMp"></select></label><span class="muted" id="fmPotAuto" style="font-size:12px"></span></div>
           <div class="scroll" style="max-height:360px"><table><thead><tr><th>Zone</th><th class="num">Spot</th><th class="num">EXP / h</th><th class="num">Kills / h</th><th class="num">Potions / h</th><th class="num">Cost / h</th><th class="num">Drops / h</th><th class="num">Profit / h</th><th class="num">EXP per 1m</th><th class="num">Time</th><th></th></tr></thead><tbody id="fmSpots"></tbody></table></div>
           <p class="muted" style="font-size:12px">Potions are counted when your HP or MP jumps up by 8 % of the bar or more between two looks. A healer's heal looks the same, so in a party this is an estimate. Prices: the chat's usual price, else the shop price.</p>
           <p class="muted" style="font-size:12px">Drops: only your drops the server announces in the chat (the rare ones), at the chat's usual selling price. Profit = drops − potions.</p></div>
@@ -696,6 +696,16 @@
         <label class="muted" style="font-size:12px">Ki <input id="asKi" type="number" min="0" style="width:110px"></label>
         <label class="muted" style="font-size:12px">Sky Stones <input id="asStones" type="number" min="0" style="width:70px"></label></div>
       <div id="asBody"></div>
+    </section>
+    <section class="panel c12" id="skillPanel">
+      <h2>Skill setup <small id="skInfo">your skill bar and auto-combat setup, read from the game's own files</small></h2>
+      <div class="tools"><select id="skChar"></select></div>
+      <div class="grid">
+        <div class="c4"><h3 style="margin:6px 0">Skill bar</h3><table><tbody id="skBar"></tbody></table></div>
+        <div class="c4"><h3 style="margin:6px 0">Auto-combat</h3><table><tbody id="skAuto"></tbody></table><div id="skPots" class="muted" style="font-size:12px;margin-top:6px"></div></div>
+        <div class="c4"><h3 style="margin:6px 0">Improve</h3><div id="skUp"></div><h3 style="margin:10px 0 6px;font-size:12px">Strongest skills at your level</h3><table><tbody id="skBest"></tbody></table></div>
+      </div>
+      <p class="muted" style="font-size:12px;margin-bottom:0">The game saves only some skill bar pages, so a skill without ✓ may simply be on another page. Your class and level come from the rankings or your notes on the character.</p>
     </section>
     <section class="panel c12" id="mobPanel">
       <h2>Your monsters <small id="mbInfo">EXP per kill and per hour, time per kill and your damage, per monster type you fight</small></h2>
@@ -1081,6 +1091,8 @@
         <div class="c4"><h2 style="font-size:12px">Game memory (MB)</h2><div id="gpMem" class="chart"></div></div>
         <div class="c4"><h2 style="font-size:12px">Freezes <small class="muted">the window stopped responding</small></h2><div class="scroll" style="max-height:170px"><table><tbody id="gpFreezes"></tbody></table></div></div>
       </div>
+      <h3 style="margin:12px 0 4px">Your graphics settings <small class="muted">from the game's own settings file</small></h3>
+      <div id="gpGfx" style="font-size:13px"></div>
       <p class="muted" style="font-size:12px;margin-bottom:0">Frames per second can only be measured from inside the game, which the tracker never touches, so it watches for freezes instead: every 5 seconds Windows says whether the game window still answers. Freezes of 10 seconds or more also show on the session timeline.</p>
     </section>
     <section class="panel c12" id="storagePanel">

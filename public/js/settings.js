@@ -418,6 +418,14 @@ async function loadHealth() {
   $('gpFreezes').innerHTML = (g.frozenNow.length ? `<tr><td colspan="4"><b style="color:var(--crimson)">❄ ${t('Not responding right now')} (${dur(g.frozenNow[0].ms)})</b></td></tr>` : '')
     + (g.freezes.map((f) => `<tr><td class="muted">${dateTime(f.t)}</td><td class="num">${dur(f.ms)}</td><td class="notr">${esc(f.char || '')}</td><td>${f.zone != null ? esc(zoneName(f.zone)) : ''}</td></tr>`).join('')
     || `<tr><td colspan="4" class="empty">${t('No freezes in the last 7 days.')}</td></tr>`);
+  // the game's graphics settings: what costs the most (advice when it freezes), and what you changed lately
+  const o = await getJSON('/api/game-options').catch(() => null);
+  if (!o?.options) { $('gpGfx').innerHTML = `<span class="muted">${t('The game settings file (ybopt2.cfg) was not found.')}</span>`; return; }
+  const heavy = o.heavy.map((h) => t(h.label)).join(', ');
+  const advice = o.freezes24h >= 3 && o.heavy.length
+    ? `<div class="note-box" style="margin:4px 0">${esc(t('The game froze {n} times in 24 hours. Lower these first, in this order (game options → graphics): {list}.', { n: o.freezes24h, list: o.heavy.slice(0, 3).map((h) => t(h.label)).join(', ') }))}</div>` : '';
+  const hist = o.history.slice(0, 6).map((h) => `<div class="muted" style="font-size:12px">${dateTime(h.t)}: <span class="mono">${esc(h.changes.map((c) => `${c.key} ${c.from} → ${c.to}`).join(', '))}</span></div>`).join('');
+  $('gpGfx').innerHTML = `${advice}<div>${o.heavy.length ? esc(t('On now (the heaviest first): {list}', { list: heavy })) : esc(t('Your graphics settings are already light.'))}</div>${hist ? `<div style="margin-top:6px"><b style="font-size:12px">${t('Changed lately')}</b>${hist}</div>` : ''}`;
 }
 
 // today's digest as it would be sent now

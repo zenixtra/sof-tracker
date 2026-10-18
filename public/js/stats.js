@@ -14,12 +14,12 @@ async function loadCompare() {
   const cell = (c, k, text) => `<td class="num">${c[k] != null && best[k] === c[k] ? `<b title="${esc(t('best of your characters'))}">★ ${text}</b>` : text}</td>`;
   const signed = (v) => (v == null ? '—' : `${v >= 0 ? '+' : '−'}${gold(Math.abs(v))}`);
   $('cmpInfo').textContent = rows.length ? t('{n} characters · the best of each column is marked ★', { n: rows.length }) : t('side by side, from what the tracker saw');
-  $('cmpRows').innerHTML = rows.map((c) => `<tr class="click" data-player="${esc(c.name)}"><td><b class="notr">${esc(c.name)}</b>${c.inGame ? ' <span class="tag up">' + t('in game') + '</span>' : ''}<div class="muted" style="font-size:11px">${esc(c.cls || '')}${c.account ? ` · ${esc(c.account)}` : ''}</div></td>
+  $('cmpRows').innerHTML = rows.map((c) => `<tr class="click" data-player="${esc(c.name)}"><td><b class="notr">${esc(c.name)}</b>${c.inGame ? ' <span class="tag up">' + t('in game') + '</span>' : ''}${c.rosterOnly ? ` <span class="tag" title="${esc(t('Found in the game folder; not played since the tracker was installed'))}">${t('not tracked')}</span>` : ''}<div class="muted" style="font-size:11px">${esc(c.cls || '')}${c.account ? ` · ${esc(c.account)}` : ''}</div></td>
     ${cell(c, 'level', c.level ?? '—')}${cell(c, 'playMs', dur(c.playMs))}${cell(c, 'activePct', c.activePct != null ? c.activePct + '%' : '—')}
     ${cell(c, 'exp', c.exp ? `+${num(c.exp, 1)}%` : '—')}${cell(c, 'expPerHour', c.expPerHour != null ? `${num(c.expPerHour, 2)}%` : '—')}
     ${cell(c, 'gold', signed(c.gold))}${cell(c, 'goldPerHour', c.goldPerHour != null ? signed(c.goldPerHour) : '—')}${cell(c, 'gearScore', c.gearScore != null ? num(c.gearScore) : '—')}
     <td class="num">${lowDeaths != null && c.playMs > 3600000 && c.deaths === lowDeaths ? `<b title="${esc(t('fewest deaths'))}">★ ${c.deaths}</b>` : c.deaths}${c.deathExp ? `<div class="muted" style="font-size:11px">−${num(c.deathExp, 2)}% EXP</div>` : ''}</td>
-    ${cell(c, 'questsDone', c.questsDone)}<td>${c.bestMob ? `<span class="notr">${esc(c.bestMob.name)}</span> <span class="muted">${num(c.bestMob.expPerHour)}/h</span>` : '<span class="muted">—</span>'}</td></tr>`).join('')
+    ${cell(c, 'questsDone', c.rosterOnly ? '—' : c.questsDone)}<td>${c.bestMob ? `<span class="notr">${esc(c.bestMob.name)}</span> <span class="muted">${num(c.bestMob.expPerHour)}/h</span>` : '<span class="muted">—</span>'}</td></tr>`).join('')
     || `<tr><td colspan="12" class="empty">${t('No sessions recorded yet.')}</td></tr>`;
 }
 $('cmpDays').addEventListener('change', loadCompare);
@@ -37,8 +37,29 @@ async function ask(q) {
 $('askForm').addEventListener('submit', (e) => { e.preventDefault(); ask($('askQ').value); });
 $('askEx').addEventListener('click', (e) => { const b = e.target.closest('[data-ask]'); if (!b) return; $('askQ').value = b.dataset.ask; ask(b.dataset.ask); });
 
+// ---- skill setup: the character's skill bar and auto-combat setup from the game files, with what to improve
+let skChar = null;
+async function loadSkillSetup() {
+  const r = await getJSON(`/api/skill-setup${skChar ? `?char=${encodeURIComponent(skChar)}` : ''}`).catch(() => null);
+  if (!r) return;
+  skChar = r.character;
+  $('skChar').innerHTML = r.chars.map((c) => `<option ${c === r.character ? 'selected' : ''}>${esc(c)}</option>`).join('');
+  $('skInfo').textContent = !r.found ? t('no saved setup found for this character in the game folder') : [r.cls && r.level ? `${r.cls} · Lv ${r.level}` : t('class / level unknown: set them on the character (click its name)'), r.barAt ? t('saved by the game {when}', { when: dateTime(r.barAt) }) : ''].filter(Boolean).join(' · ');
+  const cd = (ms) => (ms ? (ms >= 60000 ? `${num(ms / 60000, 1)} min` : `${num(ms / 1000, 1)} s`) : '');
+  const row = (x) => `<tr title="${esc(x.desc || '')}"><td class="muted mono" style="width:28px">${x.slot + 1}</td><td class="notr">${x.kind === 'skill' ? '✦' : x.kind === 'action' ? '•' : '◆'} ${esc(x.name)}${x.level ? ` <span class="muted">Lv ${x.level}</span>` : ''}</td><td class="num muted">${cd(x.cooldownMs)}</td></tr>`;
+  $('skBar').innerHTML = r.bar.map(row).join('') || `<tr><td class="empty">${t('Nothing saved')}</td></tr>`;
+  $('skAuto').innerHTML = r.auto.map(row).join('') || `<tr><td class="empty">${t('Nothing saved')}</td></tr>`;
+  $('skPots').textContent = r.potions.hp || r.potions.mp ? t('Potions used for costs: {list}', { list: [r.potions.hp, r.potions.mp].filter(Boolean).join(' · ') }) : '';
+  const a = r.advice || { upgrades: [], strongest: [] };
+  $('skUp').innerHTML = a.upgrades.length ? a.upgrades.map((u) => `<div class="note-box" style="margin:4px 0"><span class="notr">${esc(u.from.name)}</span> → <b class="notr">${esc(u.to.name)}</b> <span class="muted">Lv ${u.to.level}</span></div>`).join('')
+    : `<div class="muted" style="font-size:12px">${r.level ? t('No stronger versions of your saved skills at your level.') : t('Needs the character’s class and level.')}</div>`;
+  $('skBest').innerHTML = (a.strongest || []).map((s) => `<tr><td class="notr">${s.onBar ? '✓ ' : ''}${esc(s.name)}</td><td class="num muted">Lv ${s.level}</td></tr>`).join('');
+}
+$('skChar').addEventListener('change', () => { skChar = $('skChar').value; loadSkillSetup(); });
+
 async function loadStats() {
   loadCompare();
+  loadSkillSetup();
   const [st, bs] = await Promise.all([getJSON('/api/stats'), getJSON('/api/bosses')]);
   const p = st.patterns;
   const DAYS = [t('Mon'), t('Tue'), t('Wed'), t('Thu'), t('Fri'), t('Sat'), t('Sun')];
@@ -416,6 +437,8 @@ async function loadFarming() {
   const potOpts = (kind, cur) => r.potions.filter((p) => p[kind]).map((p) => `<option ${p.name === cur ? 'selected' : ''} value="${esc(p.name)}">${esc(p.name)}${p.price ? ` · ${gold(p.price)}${p.from === 'chat' ? ' (chat)' : ''}` : ''}</option>`).join('');
   if (document.activeElement !== $('fmPotHp')) $('fmPotHp').innerHTML = potOpts('hp', r.potionHp);
   if (document.activeElement !== $('fmPotMp')) $('fmPotMp').innerHTML = potOpts('mp', r.potionMp);
+  // found in the character's own setup in the game files (auto-combat / skill bar): that one is used, not the picker
+  $('fmPotAuto').textContent = r.potionAuto?.hp || r.potionAuto?.mp ? t('Read from this character’s own setup in the game: {what}', { what: [r.potionAuto.hp && t('HP potion'), r.potionAuto.mp && t('MP potion')].filter(Boolean).join(', ') }) : '';
   const pots = (s) => [s.hpPots >= 0.5 && `${num(s.hpPots)} HP`, s.mpPots >= 0.5 && `${num(s.mpPots)} MP`].filter(Boolean).join(' · ') || '—';
   $('fmSpots').innerHTML = r.best.map((s) => `<tr><td class="notr">${esc(s.zoneName)}</td><td class="num mono">${Math.round(s.x)}, ${Math.round(s.z)}</td><td class="num">${num(s.expPerHour, 1)}%</td><td class="num">${num(s.killsPerHour)}</td>
     <td class="num">${pots(s)}</td><td class="num">${s.costPerHour ? gold(Math.round(s.costPerHour)) : '—'}</td>

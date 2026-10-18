@@ -61,6 +61,7 @@ const { BreakWatch } = require('./lib/breaks');
 const ask = require('./lib/ask');
 const { GamePerf, parseTasklist } = require('./lib/gameperf');
 const { reportPage } = require('./lib/reportpage');
+const gamecfg = require('./lib/gamecfg');
 const guard = require('./lib/guard');
 const { guideLinkGroups } = require('./lib/guidelinks');
 const questplan = require('./lib/questplan');
@@ -765,6 +766,8 @@ function parseSessionLine(s, line, live) {
     const seenAt = live ? now : s.clock;
     let p = s.players[name];
     if (!p) p = s.players[name] = { name, id: +id, firstSeen: seenAt, lastSeen: null, sightings: 0, zone: s.position?.zone ?? null, nearMs: 0 };
+    // one of your own characters (another game window, an alt): kept, but never a threat, a watch alert or "met"
+    if (p.own ?? (p.own = isOwnChar(name))) { if (live) p.lastSeen = now; p.sightings++; return; }
     if (live) {
       if (p.lastSeen === null || now - p.lastSeen > NEARBY_WINDOW_MS) { p.nearSince = now; onThreatArrival(p.name, now, s); } // just arrived
       const away = p.lastSeen === null || now - p.lastSeen > REENCOUNTER_MS;
@@ -1248,7 +1251,7 @@ function nearbyThreats(now) {
   const mine = myFaction();
   const out = { enemies: [], unknown: [] };
   for (const p of Object.values(state.session.players)) {
-    if (!p.lastSeen || now - p.lastSeen >= NEARBY_WINDOW_MS) continue;
+    if (!p.lastSeen || now - p.lastSeen >= NEARBY_WINDOW_MS || p.own) continue; // (your own characters never count)
     const f = playerInfo(p.name)?.faction;
     if (!f) out.unknown.push(p);
     else if (mine && f !== mine) out.enemies.push(p);
@@ -1778,7 +1781,7 @@ function checkArrivals(now) {
   if (now - lastArrivalCheck < 5000) return;
   lastArrivalCheck = now;
   const s = state.session;
-  const fresh = Object.values(s.players).filter((p) => p.nearSince && now - p.nearSince < social.WINDOW * 2 && !arrivalSeen.has(`${p.name}|${p.nearSince}`));
+  const fresh = Object.values(s.players).filter((p) => !p.own && p.nearSince && now - p.nearSince < social.WINDOW * 2 && !arrivalSeen.has(`${p.name}|${p.nearSince}`));
   if (!fresh.length) return;
   const first = Math.min(...fresh.map((p) => p.nearSince));
   if (now - first < social.WINDOW) return; // wait until everyone who came with them is in
@@ -2089,6 +2092,7 @@ function weeklyReport(ws, endAt = null) {
     if (r.screen) for (const k of Object.keys(scr)) scr[k] += r.screen[k] || 0;
     for (const [z, ms] of Object.entries(r.zones || {})) zones[z] = (zones[z] || 0) + ms;
     for (const [n, p] of Object.entries(r.players || {})) {
+      if (p.own || isOwnChar(n)) continue; // your own characters are not people you met
       const m = (met[n] ||= { name: n, sessions: 0, nearMs: 0 });
       m.sessions++; m.nearMs += p.nearMs || 0;
     }
@@ -2489,6 +2493,50 @@ function itemPrice(it) {
   const p = it && market.priceStats(marketOffers().filter((o) => o.itemId === it.id), 90)[0];
   return p?.sell ? { price: p.sell, from: 'chat' } : it?.price ? { price: it.price, from: 'shop' } : { price: null, from: null };
 }
+// ---- the game's per-character files (lib/gamecfg.js): skill bars, auto-combat setups, game settings, your roster.
+// Read again at most once a minute; a change in the game settings is remembered and put on the session timeline.
+let gameCfg = { at: 0, chars: new Map(), options: null, roster: { accounts: {}, names: new Set() } };
+let optionLog = store.readJson('game-options.json', { options: null, history: [] }); // history: [{ t, changes: [{ key, from, to }] }]
+function gameFiles(now = Date.now()) {
+  if (now - gameCfg.at < 60000) return gameCfg;
+  const skills = new Map(gameDb.skills.map((s) => [s.id, s])), items = new Map(gameDb.items.map((s) => [s.id, s]));
+  gameCfg = { at: now, chars: gamecfg.readCharacterFiles(CLIENT_DIR, (id) => skills.has(id) || items.has(id)), options: gamecfg.readOptions(CLIENT_DIR), roster: gamecfg.readRoster(CLIENT_DIR) };
+  const changes = gamecfg.optionChanges(optionLog.options, gameCfg.options);
+  if (gameCfg.options && (!optionLog.options || changes.length)) {
+    if (optionLog.options && changes.length) {
+      optionLog.history = [{ t: now, changes }, ...optionLog.history].slice(0, 50);
+      if (state.session.startedAt) timelineFor(sessionKey(state.session))?.event(now, 'settings', changes.map((c) => `${c.key} ${c.from} → ${c.to}`).join(', '));
+    }
+    optionLog.options = gameCfg.options;
+    store.writeJson('game-options.json', optionLog);
+  }
+  return gameCfg;
+}
+// a character that logged in on this PC (one of yours): not a "player met", never a danger
+const isOwnChar = (name) => !!name && (gameFiles().roster.names.has(String(name).toLowerCase()) || inGameChars().some((c) => c.toLowerCase() === String(name).toLowerCase()));
+// a character's skill bar and auto-combat setup, with names, cooldowns and what to improve
+function skillSetup(char) {
+  const c = char && gameFiles().chars.get(String(char).toLowerCase());
+  const skills = new Map(gameDb.skills.map((s) => [s.id, s])), items = new Map(gameDb.items.map((s) => [s.id, s])), cds = cooldownMap();
+  const named = (slots) => (slots || []).map(({ slot, id }) => {
+    const s = skills.get(id), it = items.get(id);
+    return s ? { slot, id, kind: 'skill', name: s.name, level: s.level, cls: s.cls, cost: s.cost || null, cooldownMs: cds.get(id) || null, desc: s.desc || '' }
+      : { slot, id, kind: gamecfg.ACTION_IDS.has(id) ? 'action' : 'item', name: it?.name || `#${id}`, cooldownMs: cds.get(id) || null };
+  });
+  const bar = named(c?.bar?.slots), auto = named(c?.auto?.slots);
+  const info = playerInfo(char), cls = gamecfg.classIdOf(info?.cls) ?? [...bar, ...auto].find((x) => x.kind === 'skill' && x.cls)?.cls ?? null;
+  const used = [...auto, ...bar].filter((x) => x.kind === 'skill');
+  return {
+    character: char || null, found: !!c, barFile: c?.bar?.file || null, barAt: c?.bar?.t || null, autoAt: c?.auto?.t || null, level: info?.level ?? null, cls: info?.cls ?? null,
+    bar, auto, potions: gamecfg.potionsOf([...auto, ...bar].filter((x) => x.kind === 'item'), guideplan.POTIONS),
+    advice: gamecfg.skillAdvice({ used, skills: gameDb.skills, cls, level: info?.level, faction: info?.faction }),
+  };
+}
+// the HP / MP potions a character uses: from its own setup in the game files, else the ones picked in Settings
+function potionsFor(char) {
+  const p = char ? skillSetup(char).potions : {};
+  return { hp: p.hp || settings.potionHp, mp: p.mp || settings.potionMp, auto: { hp: !!p.hp, mp: !!p.mp } };
+}
 function potionList() {
   return Object.entries(guideplan.POTIONS).map(([name, p]) => { const it = itemByName(name); return { name, id: it?.id ?? null, hp: p.hp || 0, mp: p.mp || 0, pool: !!p.pool, ...itemPrice(it) }; });
 }
@@ -2502,9 +2550,10 @@ function myGender(char = myCharacter()) {
 // what an NPC pays for an item (the game data's sell price), for loot without a chat price yet
 let npcSellCache = { db: null, map: new Map() };
 function npcSell(id) { if (npcSellCache.db !== gameDb) npcSellCache = { db: gameDb, map: new Map(gameDb.items.filter((i) => i.sell > 0).map((i) => [i.id, i.sell])) }; return npcSellCache.map.get(id) || 0; }
-function spotCost(s, pots = potionList()) {
-  const hpP = pots.find((p) => p.name === settings.potionHp), mpP = pots.find((p) => p.name === settings.potionMp);
-  const hp = guideplan.potionCost(s.hpPerHour, settings.potionHp, hpP?.price), mp = guideplan.potionCost(s.mpPerHour, settings.potionMp, mpP?.price);
+function spotCost(s, pots = potionList(), char = myCharacter()) {
+  const use = potionsFor(char); // (the character's own potions, from its setup in the game files)
+  const hpP = pots.find((p) => p.name === use.hp), mpP = pots.find((p) => p.name === use.mp);
+  const hp = guideplan.potionCost(s.hpPerHour, use.hp, hpP?.price), mp = guideplan.potionCost(s.mpPerHour, use.mp, mpP?.price);
   const cost = (hp.cost || 0) + (mp.cost || 0);
   // your announced drops there, at the chat's usual selling price
   let loot = 0, priced = 0;
@@ -2672,7 +2721,12 @@ function ascView() {
 // your characters side by side over the last `days` days: play, EXP and gold per hour, gear, deaths, quests, best monster
 function compareView(days = 30, now = Date.now()) {
   const from = now - days * 86400000, H = 3600000;
-  return myCharacters().slice(0, 12).map((c) => {
+  // plus your characters from the game files that the tracker never saw play, when their level is known (rankings / notes)
+  const seen = new Set(myCharacters().map((c) => c.name.toLowerCase()));
+  const accountOf = {}; for (const [acc, list] of Object.entries(gameFiles().roster.accounts)) for (const n of list) accountOf[n.toLowerCase()] = acc;
+  const extra = [...gameFiles().roster.names].filter((n) => !seen.has(n) && playerInfo(n)?.level).slice(0, 12)
+    .map((n) => { const i = playerInfo(n); return { name: i.name || n, account: accountOf[n] || null, level: i.level, cls: i.cls || null, inGame: false, lastPlayed: null, rosterOnly: true }; });
+  return [...myCharacters().slice(0, 12), ...extra].map((c) => {
     const k = c.name.toLowerCase();
     const ss = Object.values(sessions).filter((r) => String(r.character).toLowerCase() === k && (r.endedAt || r.startedAt) >= from);
     const ms = ss.reduce((a, r) => a + Math.max(0, (r.endedAt || now) - Math.max(r.startedAt, from)), 0);
@@ -2691,9 +2745,9 @@ function compareView(days = 30, now = Date.now()) {
       gold: sum.goldChange ?? null, goldPerHour: sum.goldChange != null && playH >= 0.25 ? Math.round(sum.goldChange / playH) : null,
       gearScore: (() => { try { return charGearScore(c.name).score || null; } catch { return null; } })(),
       deaths: deaths.length, deathExp: sum.deathExp || 0, questsDone: sum.questsDone || 0,
-      bestMob: best ? { name: best.name, expPerHour: best.expPerHour } : null,
+      bestMob: best ? { name: best.name, expPerHour: best.expPerHour } : null, rosterOnly: !!c.rosterOnly,
     };
-  }).filter((c) => c.sessions || c.inGame);
+  }).filter((c) => c.sessions || c.inGame || c.rosterOnly);
 }
 // countdowns to your goals for the overlay, the phone and the widget: the next level, today's EXP goal, the gold
 // for your shopping list and gear goals (play time left at your own pace). Cached for 30 seconds.
@@ -2760,10 +2814,10 @@ function askContext() {
 }
 function mySummary(from, to, char = null) {
   const d = dailyStats.range(from, to, char), pots = potionList();
-  const hp = guideplan.POTIONS[settings.potionHp], mp = guideplan.POTIONS[settings.potionMp];
+  const use = potionsFor(char), hp = guideplan.POTIONS[use.hp], mp = guideplan.POTIONS[use.mp];
   const hpPots = d.potHp && hp ? d.potHp / hp.hp : 0, mpPots = d.potMp && mp ? d.potMp / mp.mp : 0;
   const price = (n) => pots.find((p) => p.name === n)?.price || 0;
-  return { hpPots: Math.round(hpPots), mpPots: Math.round(mpPots), potionCost: Math.round(hpPots * price(settings.potionHp) + mpPots * price(settings.potionMp)),
+  return { hpPots: Math.round(hpPots), mpPots: Math.round(mpPots), potionCost: Math.round(hpPots * price(use.hp) + mpPots * price(use.mp)), potions: use,
     goldChange: char ? invWatch.between(char, from, to) : null,
     enhOk: d.enhOk || 0, enhFail: d.enhFail || 0, mazeRuns: d.mazeRuns || 0, mazeExp: d.mazeExp || 0, mazeMin: Math.round(d.mazeMin || 0),
     // quests, EXP from monsters / quests, net worth, gear score and what deaths cost
@@ -3839,7 +3893,7 @@ const server = http.createServer(async (req, res) => {
     if (route === '/api/farming') {
       const pots = potionList();
       return json(res, { kills: farming.data.kills, best: farming.best().slice(0, 40).map((s) => ({ ...s, zoneName: zoneName(s.zone), ...spotCost(s, pots) })),
-        potions: pots, potionHp: settings.potionHp, potionMp: settings.potionMp,
+        potions: pots, ...(() => { const u = potionsFor(myCharacter()); return { potionHp: u.hp, potionMp: u.mp, potionAuto: u.auto }; })(),
         deaths: farming.data.deaths.slice(-50).reverse().map((d) => ({ ...d, zoneName: zoneName(d.zone) })),
         deathCost: deathCost(farming.data.deaths.filter((d) => d.t >= Date.now() - 30 * 86400000)) });
     }
@@ -4063,7 +4117,29 @@ const server = http.createServer(async (req, res) => {
       readerTools.setTrayStatus({ at: Date.now(), keys: Object.fromEntries(['M', 'O', 'L', 'S', 'I'].map((k) => [k, !!b[k]])) });
       return json(res, { ok: true });
     }
-    if (route === '/api/setup-check') return json(res, setupCheck());
+    if (route === '/api/setup-check') {
+      // plus the game's own settings that matter for the screen reader (ybopt2.cfg)
+      const r = setupCheck(), o = gameFiles().options;
+      if (o) {
+        const issues = gamecfg.readerIssues(o);
+        const row = (id, label, ok, detail, fix) => ({ id, label, status: ok ? 'ok' : 'warn', detail, fix });
+        r.rows.push(row('winmode', 'Game window mode', o.Winmode !== 0, o.Winmode === 0 ? 'full screen' : 'windowed or borderless', issues.find((i) => i.key === 'Winmode')?.text || ''));
+        if (o.ChatBackgroundAlpha != null) r.rows.push(row('chatbg', 'Chat background (for reading the chat)', o.ChatBackgroundAlpha >= 60, `${o.ChatBackgroundAlpha} of 100`, issues.find((i) => i.key === 'ChatBackgroundAlpha')?.text || ''));
+        r.warnings = r.rows.filter((x) => x.status === 'warn').length;
+      }
+      return json(res, r);
+    }
+    // a character's skill bar and auto-combat setup from the game files, with advice
+    if (route === '/api/skill-setup') {
+      const chars = [...new Set([...knownChars(), ...[...gameFiles().chars.values()].filter((c) => c.bar?.slots.length || c.auto?.slots.length).map((c) => c.name)])];
+      const who = url.searchParams.get('char') || myCharacter() || chars[0] || null;
+      return json(res, { ...skillSetup(who), chars });
+    }
+    // the game's settings: what costs the most, what was changed and when
+    if (route === '/api/game-options') {
+      const g = gameFiles();
+      return json(res, { options: g.options, heavy: gamecfg.graphicsHeavy(g.options), reader: gamecfg.readerIssues(g.options), history: optionLog.history.slice(0, 20), freezes24h: gamePerf.view(Date.now()).today });
+    }
     if (route === '/api/features') return json(res, { features: FEATURES.map((x) => ({ ...x, on: feat(x.id) })), alertMute: settings.alertMute || {}, alertCap: settings.alertCap || 0, quietFarming: !!settings.quietFarming });
     // debug captures and the debug bundle (a zip to send for tuning the readers): game pictures and logs, so this PC only
     if ((route.startsWith('/api/debug') || route === '/api/pickup-learn') && !/^(::1|127\.|::ffff:127\.)/.test(req.socket.remoteAddress || '')) { res.writeHead(403); return res.end('PC only'); }
@@ -4568,6 +4644,7 @@ function snapshotFor(c, snap) {
 
 setInterval(() => {
   checkGoals();
+  try { gameFiles(); } catch (e) { console.log(`[tracker] game files: ${e.message}`); } // (notices game-setting changes)
   checkWeeklyReport();
   checkDigest();
   checkExpGoal();

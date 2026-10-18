@@ -149,7 +149,7 @@ async function openSession(key) {
 }
 
 // HP / MP / EXP over the session (one axis: all in %), and below it when kills, deaths, drops, whispers and level-ups happened
-const TL_EVENTS = { kill: ['·', 'Kills'], death: ['✝', 'Deaths'], drop: ['◆', 'Drops'], whisper: ['💬', 'Whispers'], level: ['▲', 'Level-ups'], effect: ['✦', 'Effects'], party: ['👥', 'Party'], freeze: ['❄', 'Game froze'] };
+const TL_EVENTS = { kill: ['·', 'Kills'], death: ['✝', 'Deaths'], drop: ['◆', 'Drops'], whisper: ['💬', 'Whispers'], level: ['▲', 'Level-ups'], effect: ['✦', 'Effects'], party: ['👥', 'Party'], freeze: ['❄', 'Game froze'], settings: ['⚙', 'Game settings changed'] };
 async function loadTimeline(r) {
   const tl = await getJSON(`/api/session-timeline?key=${encodeURIComponent(r.key)}`);
   const box = $('sdTimeline');
