@@ -44,7 +44,10 @@ function render(S) {
 }
 startI18n();
 const es = new EventSource('/events');
-es.onmessage = (e) => { const S = JSON.parse(e.data); if (SofGate.onState(S)) return; if (S.settings?.lang && S.settings.lang !== getLang()) setLang(S.settings.lang); render(S); };
+let S = null, barsQueued = false;
+// fast bars: HP / MP / EXP several times a second between the full updates
+es.addEventListener('bars', (e) => { if (!S?.screen) return; const b = JSON.parse(e.data); Object.assign(S.screen, { hp: b.hp ?? S.screen.hp, mp: b.mp ?? S.screen.mp, exp: b.exp ?? S.screen.exp, fast: b }); if (!barsQueued) { barsQueued = true; requestAnimationFrame(() => { barsQueued = false; render(S); }); } });
+es.onmessage = (e) => { S = JSON.parse(e.data); if (SofGate.onState(S)) return; if (S.settings?.lang && S.settings.lang !== getLang()) setLang(S.settings.lang); render(S); };
 </script>
 </body>
 </html>

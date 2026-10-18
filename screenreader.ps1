@@ -5,11 +5,12 @@
 #   -Image <file>    read one saved screenshot instead (for testing)
 #   -Once            one look, then stop;  -SaveFrame <file.png>  also save what was captured (checking the regions)
 #   -RingDir <dir>   keep the last -RingSize looks there as f0.jpg … (for death replays and drop pictures)
-param([int]$GamePid = 0, [string]$Image = '', [double]$Interval = 3, [string]$Regions = '', [switch]$Once, [string]$SaveFrame = '', [string]$DebugDir = '',
+param([int]$GamePid = 0, [string]$Image = '', [double]$Interval = 3, [double]$Fast = 0, [string]$Regions = '', [switch]$Once, [string]$SaveFrame = '', [string]$DebugDir = '',
   [string]$RingDir = '', [int]$RingSize = 12, [string]$IntervalFile = '', [string]$IconIndex = '')
 #   -IconIndex <f>   data\icon-index.bin: the item and skill icons a buff can show with (built by the tracker)
-#   -IntervalFile <f> the seconds between looks are read from this file before every pause (the tracker speeds up and
-#                     slows down the reading without restarting it)
+#   -IntervalFile <f> "seconds;fast" is read from this file before every pause (the tracker speeds up and slows down
+#                     the reading without restarting it); 0 seconds = the next full look right away
+#   -Fast <n>        n fast looks per second during the pause: only the HP / MP / EXP bars, by pixel colour ({"q":1,…})
 $ring = 0; $look = 0
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false # the tracker reads UTF-8
@@ -731,6 +732,36 @@ public static class SofScreen {
     if (System.IO.File.Exists(file)) System.IO.File.Delete(file);
     System.IO.File.Move(tmp, file);
   }
+  // the HUD's HP (red) or MP (blue) bar by pixel colour only, no text recognition: the best row between y0 and y1,
+  // the rightmost fill-coloured pixel between x0 and x1 as a fraction of the bar (the tracker corrects the scale
+  // against the numbers it reads, see "fast bars" in server.js). -1 when no bar is there.
+  public static double BarFill(Bitmap s, int y0, int y1, int x0, int x1, bool red) {
+    double best = -1; int bestN = 0;
+    for (int y = Math.Max(0, y0); y <= y1 && y < s.Height; y++) {
+      int n = 0, last = -1;
+      for (int x = Math.Max(0, x0); x <= x1 && x < s.Width; x++) {
+        var c = s.GetPixel(x, y);
+        bool f = red ? (c.R > 150 && c.R > c.G + 70 && c.R > c.B + 70) : (c.B > 140 && c.B > c.R + 60 && c.B > c.G + 20);
+        if (f) { n++; last = x; }
+      }
+      if (n > bestN) { bestN = n; best = (double)(last - x0 + 1) / (x1 - x0 + 1); }
+    }
+    return bestN < 2 ? (y1 < s.Height ? 0 : -1) : Math.Min(1, best);
+  }
+  // a fast look: only the HUD corner and the EXP strip at the bottom are copied from the game window (a few ms)
+  public static Bitmap[] QuickCapture(IntPtr hwnd) {
+    if (hwnd == IntPtr.Zero || IsIconic(hwnd)) return null;
+    RECT r; if (!GetClientRect(hwnd, out r) || r.R < 200 || r.B < 200) return null;
+    var hud = new Bitmap(240, 40, PixelFormat.Format24bppRgb); var strip = new Bitmap(r.R, 14, PixelFormat.Format24bppRgb);
+    var src = GetDC(hwnd); bool ok = src != IntPtr.Zero;
+    if (ok) {
+      using (var g = Graphics.FromImage(hud)) { var h = g.GetHdc(); ok = BitBlt(h, 0, 0, 240, 40, src, 0, 0, 0x00CC0020); g.ReleaseHdc(h); }
+      using (var g = Graphics.FromImage(strip)) { var h = g.GetHdc(); ok = ok && BitBlt(h, 0, 0, r.R, 14, src, 0, r.B - 14, 0x00CC0020); g.ReleaseHdc(h); }
+      ReleaseDC(hwnd, src);
+    }
+    if (!ok || Blank(hud)) { hud.Dispose(); strip.Dispose(); return null; }
+    return new Bitmap[] { hud, strip };
+  }
   // share of a horizontal strip whose pixels are bluish (the EXP bar)
   public static double BlueFill(Bitmap src, int y, int x0, int x1) {
     int n = 0, total = 0;
@@ -885,6 +916,8 @@ function OcrRich([System.Drawing.Bitmap]$bmp, [int]$pad = 24) {
 }
 
 # HUD positions in pixels (the game draws its HUD at a fixed size: top-left for HP/MP/level, bottom for EXP and chat)
+# the HP / MP bars themselves (rows to search, and where the bar starts and ends), for reading them by colour
+$Bar = @{ hp = @(9, 20); mp = @(22, 33); x0 = 57; x1 = 228 }
 $R = @{ hp = @(60, 6, 175, 16); mp = @(60, 22, 175, 16); level = @(57, 48, 24, 15)   # inside the small level box only
   chat = @(0, 0, 380, 310); chatFromBottom = 345     # the whole chat area above the skill bar (it can be tall)
   shout = @(0, 0, 350, 46); shoutFromBottom = 390    # the "Lion's Roar" box above the chat
@@ -1059,8 +1092,24 @@ function Read-Frame([System.Drawing.Bitmap]$bmp) {
   $o.iconMs = $watch.ElapsedMilliseconds - $t0
   $fill = [SofScreen]::ExpFill($bmp)
   $o.exp = $(if ($fill -lt 0) { $null } else { [math]::Round(100 * $fill, 2) })
+  # the HP / MP bars by colour too: the tracker compares them with the numbers to calibrate the fast looks
+  $o.bars = [ordered]@{ hp = [math]::Round([SofScreen]::BarFill($bmp, $Bar.hp[0], $Bar.hp[1], $Bar.x0, $Bar.x1, $true), 4); mp = [math]::Round([SofScreen]::BarFill($bmp, $Bar.mp[0], $Bar.mp[1], $Bar.x0, $Bar.x1, $false), 4) }
   $o.ms = $watch.ElapsedMilliseconds  # how long this look took to read
   $o | ConvertTo-Json -Compress -Depth 3
+}
+
+# a fast look between full ones (-Fast looks per second): the HP / MP / EXP bars by pixel colour only, no text recognition
+function Quick-Look($hwnd) {
+  $w = [Diagnostics.Stopwatch]::StartNew()
+  $parts = [SofScreen]::QuickCapture($hwnd)
+  if (-not $parts) { return }
+  try {
+    $exp = [SofScreen]::ExpFill($parts[1])
+    $q = [ordered]@{ q = 1; hp = [math]::Round([SofScreen]::BarFill($parts[0], $Bar.hp[0], $Bar.hp[1], $Bar.x0, $Bar.x1, $true), 4)
+      mp = [math]::Round([SofScreen]::BarFill($parts[0], $Bar.mp[0], $Bar.mp[1], $Bar.x0, $Bar.x1, $false), 4)
+      exp = $(if ($exp -lt 0) { $null } else { [math]::Round(100 * $exp, 2) }); ms = $w.ElapsedMilliseconds }
+    $q | ConvertTo-Json -Compress
+  } finally { $parts[0].Dispose(); $parts[1].Dispose() }
 }
 
 if ($Image) { $bmp = [System.Drawing.Bitmap]::FromFile($Image); Read-Frame $bmp; exit 0 }
@@ -1082,6 +1131,16 @@ while ($true) {
   } catch [Microsoft.PowerShell.Commands.ProcessCommandException] { '{"state":"closed"}'; exit 0 }
   catch { '{"error":' + ($_.Exception.Message | ConvertTo-Json) + '}' }
   [Console]::Out.Flush()
-  if ($IntervalFile -and (Test-Path $IntervalFile)) { try { $v = [double]((Get-Content $IntervalFile -Raw).Trim()); if ($v -ge 1 -and $v -le 60) { $Interval = $v } } catch { } }
-  Start-Sleep -Milliseconds ([int]($Interval * 1000))
+  # "seconds;fast looks per second", e.g. "3;10" (0 seconds = the next full look right away)
+  if ($IntervalFile -and (Test-Path $IntervalFile)) { try { $p = (Get-Content $IntervalFile -Raw).Trim() -split ';'; $v = [double]$p[0]; if ($v -ge 0 -and $v -le 60) { $Interval = $v }; if ($p.Count -gt 1) { $f = [double]$p[1]; if ($f -ge 0 -and $f -le 30) { $Fast = $f } } } catch { } }
+  $until = [DateTime]::UtcNow.AddMilliseconds($Interval * 1000)
+  if ($Fast -gt 0 -and $Interval -gt 0) {
+    $step = 1000 / $Fast
+    while ([DateTime]::UtcNow -lt $until) {
+      $t0 = [DateTime]::UtcNow
+      try { Quick-Look $proc.MainWindowHandle; [Console]::Out.Flush() } catch { if (-not $qErr) { $qErr = 1; '{"qerr":' + ($_.Exception.Message | ConvertTo-Json) + '}'; [Console]::Out.Flush() } }
+      $left = [Math]::Min($step - ([DateTime]::UtcNow - $t0).TotalMilliseconds, ($until - [DateTime]::UtcNow).TotalMilliseconds)
+      if ($left -gt 1) { Start-Sleep -Milliseconds ([int]$left) }
+    }
+  } elseif ($Interval -gt 0) { Start-Sleep -Milliseconds ([int]($Interval * 1000)) }
 }

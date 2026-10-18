@@ -60,6 +60,7 @@ const { MobStats } = require('./lib/mobstats');
 const { BreakWatch } = require('./lib/breaks');
 const ask = require('./lib/ask');
 const { GamePerf, parseTasklist } = require('./lib/gameperf');
+const { FastBars } = require('./lib/fastbars');
 const { reportPage } = require('./lib/reportpage');
 const gamecfg = require('./lib/gamecfg');
 const guard = require('./lib/guard');
@@ -130,7 +131,8 @@ const DEFAULT_SETTINGS = {
   voice: 'off',         // voice alerts in the overlay: off | important | all
   shareLive: true,      // friends sync: share your live zone / position / in-game status (party view)
   screenReader: false,  // read HP / MP / EXP and loot announcements from the game window (screenreader.ps1)
-  screenInterval: 3,    // seconds between looks
+  screenInterval: 3,    // seconds between full looks (0 = no pause: a full look takes about a second by itself)
+  fastBars: 0,          // HP / MP / EXP bars read this many times a second between full looks (0 = off; 2, 5, 10, 20)
   lowHpAlert: 0,        // alert below this HP % (0 = off; needs the screen reader)
   // what the screen reader tells you about while you're away
   whisperAlert: true,   // whispers (and lines in the chat colours you picked)
@@ -2904,10 +2906,12 @@ const { readerOk, debugCapture, debugList, debugBundle, setupCheck, readerCheckV
 const recentKills = [];
 let pace = { interval: null, why: null };
 const PACE_FILE = path.join(store.DIR, 'reader-interval.txt');
+// "seconds between full looks;fast looks per second" (screenreader.ps1 reads it before every pause)
 function setPace(p) {
-  if (p.interval === pace.interval && p.why === pace.why) return;
-  pace = p;
-  try { fs.writeFileSync(PACE_FILE, String(p.interval)); } catch { /* next look */ }
+  const fast = settings.fastBars || 0;
+  if (p.interval === pace.interval && p.why === pace.why && fast === pace.fast) return;
+  pace = { ...p, fast };
+  try { fs.writeFileSync(PACE_FILE, `${p.interval};${fast}`); } catch { /* next look */ }
 }
 const onlineSeen = new Map(); // watched player -> last chat line time (an "is online" alert once an hour)
 // buff icons: the item and skill icons a buff can show with, shrunk for the screen reader (lib/iconindex.js); built
@@ -2995,10 +2999,31 @@ function saveDropShot(rec) {
   keepShots();
 }
 
+// fast bars (Settings → Screen reader → "HP / MP bars"): quick looks between full ones, by pixel colour only
+const fastBars = new FastBars();
+function onQuickLook(q) {
+  if (!screen || updateBlocked) return;
+  const v = fastBars.quick(q);
+  // the numbers on the dashboard follow the bars between full looks (the max stays what the last full look read)
+  if (v.hpPct != null && screen.hpMax) screen.hp = Math.round((v.hpPct / 100) * screen.hpMax);
+  if (v.mpPct != null && screen.mpMax) screen.mp = Math.round((v.mpPct / 100) * screen.mpMax);
+  if (v.exp != null && v.exp > 0) screen.exp = v.exp;
+  screen.fast = v;
+  // low HP: noticed within a fraction of a second instead of at the next full look
+  if (settings.lowHpAlert && v.hpPct != null && v.hpPct > 0 && v.hpPct < settings.lowHpAlert && q.t - lowHpAt > 60000) {
+    lowHpAt = q.t;
+    addAlert('danger', `Low HP: ${Math.round(v.hpPct)}%`, screen.hp != null && screen.hpMax ? `${screen.hp} / ${screen.hpMax}` : '');
+  }
+  // straight to the open pages (dashboard, overlay, phone, widgets), as a small "bars" event
+  const msg = `event: bars\ndata: ${JSON.stringify({ ...v, hp: screen.hp, hpMax: screen.hpMax, mp: screen.mp, mpMax: screen.mpMax })}\n\n`;
+  for (const c of clients) c.write(msg);
+}
 const screenReader = new screenreader.ScreenReader({
   script: screenreader.SCRIPT,
+  onQuick: onQuickLook,
   onFrame(f) {
     const hp = screenreader.parsePair(f.hp), mp = screenreader.parsePair(f.mp);
+    fastBars.full({ hp, mp, bars: f.bars }); // (teaches the fast looks the bars' scale)
     const sk = state.session.file && state.session.startedAt ? sessionKey(state.session) : null;
     if (screenSession.key !== sk) screenSession = new watch.ScreenSession(sk, sk ? sessions[sk]?.screen : null);
     if (f.exp > 0) { expSamples.push({ t: f.t, exp: f.exp }); while (expSamples.length > 2000 || (expSamples.length && f.t - expSamples[0].t > 3600000)) expSamples.shift(); }
@@ -3200,7 +3225,8 @@ function syncScreenReader() {
       // a self-check of the reader once it had a few minutes to read (HP, EXP, chat)
       clearTimeout(syncScreenReader.check); syncScreenReader.check = setTimeout(() => doSelfCheck('screen reader started'), 5 * 60000);
     }
-    screenReader.start(state.game.pid, settings.screenInterval, ['-RingDir', RING_DIR, '-IntervalFile', PACE_FILE, '-IconIndex', ICON_INDEX]);
+    screenReader.start(state.game.pid, settings.screenInterval, ['-Fast', String(settings.fastBars || 0), '-RingDir', RING_DIR, '-IntervalFile', PACE_FILE, '-IconIndex', ICON_INDEX]);
+    setPace({ interval: pace.interval ?? settings.screenInterval, why: pace.why || 'start' }); // (a changed fast-bars rate reaches a running reader)
   }
   else { screenReader.stop(); screen = null; }
   // your other game windows get a reader of their own: HP / MP / EXP, deaths, low HP, logged out, EXP stopped
@@ -3547,7 +3573,8 @@ function applySettings(b) {
     voice: ['off', 'important', 'all'].includes(b.voice) ? b.voice : settings.voice,
     shareLive: b.shareLive === undefined ? settings.shareLive : !!b.shareLive,
     screenReader: b.screenReader === undefined ? settings.screenReader : !!b.screenReader,
-    screenInterval: num(b.screenInterval, 1, 30, settings.screenInterval),
+    screenInterval: num(b.screenInterval, 0, 30, settings.screenInterval), // (0: the next full look right away, about one a second)
+    fastBars: [0, 2, 5, 10, 20].includes(+b.fastBars) ? +b.fastBars : settings.fastBars,
     lowHpAlert: num(b.lowHpAlert, 0, 90, settings.lowHpAlert),
     whisperAlert: b.whisperAlert === undefined ? settings.whisperAlert : !!b.whisperAlert,
     mentionAlert: b.mentionAlert === undefined ? settings.mentionAlert : !!b.mentionAlert,

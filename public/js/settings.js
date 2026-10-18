@@ -493,7 +493,7 @@ async function refreshPeek() {
 setInterval(refreshPeek, 3000);
 async function loadScreenSettings() {
   const st = await getJSON('/api/settings');
-  $('srOn').checked = !!st.screenReader; $('srEvery').value = String(st.screenInterval || 3); $('srLowHp').value = String(st.lowHpAlert || 0);
+  $('srOn').checked = !!st.screenReader; $('srEvery').value = String(st.screenInterval ?? 3); $('srFast').value = String(st.fastBars || 0); $('srLowHp').value = String(st.lowHpAlert || 0);
   $('srWhisper').checked = st.whisperAlert !== false; $('srMention').checked = st.mentionAlert !== false; $('srHud').checked = st.hudAlert !== false;
   $('srStuck').value = String(st.stuckMinutes ?? 10); $('srParty').value = String(st.partyHpAlert || 0);
   $('srReplay').checked = st.deathReplay !== false; $('srShots').value = st.dropShots || 'mine'; $('srChat').checked = st.chatLog !== false;
@@ -506,13 +506,15 @@ async function loadScreenSettings() {
   $('srEffect').checked = st.effectAlert !== false; $('srBuffEnd').checked = st.buffEndAlert !== false; $('srMini').value = String(st.minimapSurge ?? 5);
   loadHealth();
   const pc = S?.screen?.pace;
-  $('srPaceNow').textContent = pc?.interval ? t('now every {n} s ({why})', { n: pc.interval, why: t({ busy: 'fighting', quiet: 'AFK', normal: 'normal', fixed: 'fixed', start: 'starting' }[pc.why] || pc.why) }) : '';
+  $('srPaceNow').textContent = [pc?.interval != null ? (pc.interval ? t('now every {n} s ({why})', { n: pc.interval, why: t({ busy: 'fighting', quiet: 'AFK', normal: 'normal', fixed: 'fixed', start: 'starting' }[pc.why] || pc.why) }) : t('now without a pause')) : '',
+    st.fastBars && !(st.screenInterval > 0) ? t('the fast bars need a pause between full reads (1 s or more)') : '',
+    S?.screen?.fast ? t('bars: {n} reads a second', { n: st.fastBars }) : ''].filter(Boolean).join(' · ');
   loadStorage();
   const s = S?.screen;
   $('srStatus').textContent = !st.screenReader ? t('off') : !S?.game?.running ? t('waits for the game') : s?.status === 'reading' ? t('reading the game window') : s?.status === 'hidden' ? t('game window minimised') : s?.status === 'covered' ? t('game window covered: bring it to the front once') : s?.error ? s.error : t('starting…');
 }
 const chk = (el) => el.checked, val = (el) => +el.value;
-for (const [id, key, conv] of [['srOn', 'screenReader', chk], ['srEvery', 'screenInterval', val], ['srLowHp', 'lowHpAlert', val],
+for (const [id, key, conv] of [['srOn', 'screenReader', chk], ['srEvery', 'screenInterval', val], ['srFast', 'fastBars', val], ['srLowHp', 'lowHpAlert', val],
   ['srWhisper', 'whisperAlert', chk], ['srMention', 'mentionAlert', chk], ['srHud', 'hudAlert', chk], ['srStuck', 'stuckMinutes', val], ['srParty', 'partyHpAlert', val],
   ['srReplay', 'deathReplay', chk], ['srShots', 'dropShots', (el) => el.value], ['srChat', 'chatLog', chk],
   ['srDeal', 'dealAlert', val], ['srAlts', 'screenReaderAlts', chk], ['srPeekLan', 'peekLan', chk],

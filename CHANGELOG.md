@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.47.0
+
+- **Real-time HP, MP and EXP bars:** a new "HP / MP / EXP bars" setting (Settings → Screen reader) reads the bars 2, 5, 10 or 20 times a second between full reads.
+  - The fast reads use the bars' colours only, a few milliseconds each, no text recognition.
+  - They calibrate themselves against the numbers each full read finds.
+  - The dashboard, overlay, phone page and widgets update live.
+  - The low-HP alert reacts within a fraction of a second.
+- **Faster full reads:** full reads can now run every 1 second, or with no pause at all (about one a second; a full read takes about a second by itself).
+
 ## 1.46.0
 
 - **Potions per character:** each character's HP and MP potions are read from its own auto-combat setup and skill bar in the game folder. Potion costs and farming profit use them automatically; the Settings choice is only used when nothing is found.

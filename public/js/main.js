@@ -169,6 +169,13 @@ function connect() {
     render();
     if (first) showTab((location.hash || '').slice(1) || store.get('tab', 'live'));
   };
+  // fast bars: HP / MP / EXP several times a second between the full updates (redrawn once per screen frame)
+  let barsQueued = false;
+  es.addEventListener('bars', (e) => {
+    if (!S?.screen || S.blocked) return;
+    const b = JSON.parse(e.data); Object.assign(S.screen, { hp: b.hp ?? S.screen.hp, mp: b.mp ?? S.screen.mp, exp: b.exp ?? S.screen.exp, fast: b });
+    if (!barsQueued) { barsQueued = true; requestAnimationFrame(() => { barsQueued = false; if (tab === 'live') renderScreen(); }); }
+  });
   es.onerror = () => { $('gameStatus').textContent = 'Tracker offline. Reconnecting…'; $('gameDot').classList.remove('on'); };
 }
 

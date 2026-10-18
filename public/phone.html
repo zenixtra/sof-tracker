@@ -149,6 +149,9 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) load
 
 startI18n();
 const es = new EventSource('/events?delta=1');
+// fast bars: HP / MP / EXP several times a second between the full updates
+let barsQueued = false;
+es.addEventListener('bars', (e) => { if (!S?.screen || S.blocked) return; const b = JSON.parse(e.data); Object.assign(S.screen, { hp: b.hp ?? S.screen.hp, mp: b.mp ?? S.screen.mp, exp: b.exp ?? S.screen.exp, fast: b }); if (!barsQueued) { barsQueued = true; requestAnimationFrame(() => { barsQueued = false; render(); }); } });
 es.onmessage = (e) => {
   const first = !S;
   { const prev = S; S = JSON.parse(e.data); if (SofGate.onState(S)) { S = prev; return; } for (const k of S.same || []) S[k] = prev?.[k]; } off = S.now - Date.now();

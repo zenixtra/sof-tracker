@@ -2203,6 +2203,20 @@
     ['windowed or borderless', 'pencereli veya kenarlıksız', 'cửa sổ hoặc không viền', 'jendela atau tanpa bingkai', '窗口或无边框', 'หน้าต่างหรือไร้ขอบ', 'ventana o sin bordes'],
     ['full screen', 'tam ekran', 'toàn màn hình', 'layar penuh', '全屏', 'เต็มจอ', 'pantalla completa'],
     ['Chat background (for reading the chat)', 'Sohbet arka planı (sohbeti okumak için)', 'Nền khung chat (để đọc chat)', 'Latar chat (untuk membaca chat)', '聊天背景（用于读取聊天）', 'พื้นหลังแชท (สำหรับอ่านแชท)', 'Fondo del chat (para leer el chat)'],
+    ['full read every', 'tam okuma her', 'đọc đầy đủ mỗi', 'baca penuh tiap', '完整读取间隔', 'อ่านเต็มทุก', 'lectura completa cada'],
+    ['no pause (about 1 per second, heavy)', 'aralıksız (saniyede ~1, ağır)', 'không nghỉ (~1 lần/giây, nặng)', 'tanpa jeda (~1 per detik, berat)', '不间断（约每秒 1 次，较耗资源）', 'ไม่พัก (~1 ครั้ง/วินาที หนัก)', 'sin pausa (~1 por segundo, pesado)'],
+    ['1 s', '1 sn', '1 giây', '1 dtk', '1 秒', '1 วิ', '1 s'],
+    ['HP / MP / EXP bars', 'HP / MP / EXP çubukları', 'Thanh HP / MP / EXP', 'Bar HP / MP / EXP', 'HP / MP / EXP 条', 'แถบ HP / MP / EXP', 'Barras de HP / MP / EXP'],
+    ['with the full reads', 'tam okumalarla birlikte', 'cùng lần đọc đầy đủ', 'bersama baca penuh', '随完整读取', 'พร้อมการอ่านเต็ม', 'con las lecturas completas'],
+    ['2 times a second', 'saniyede 2 kez', '2 lần mỗi giây', '2 kali per detik', '每秒 2 次', '2 ครั้งต่อวินาที', '2 veces por segundo'],
+    ['5 times a second', 'saniyede 5 kez', '5 lần mỗi giây', '5 kali per detik', '每秒 5 次', '5 ครั้งต่อวินาที', '5 veces por segundo'],
+    ['10 times a second', 'saniyede 10 kez', '10 lần mỗi giây', '10 kali per detik', '每秒 10 次', '10 ครั้งต่อวินาที', '10 veces por segundo'],
+    ['20 times a second (real time)', 'saniyede 20 kez (gerçek zamanlı)', '20 lần mỗi giây (thời gian thực)', '20 kali per detik (real time)', '每秒 20 次（实时）', '20 ครั้งต่อวินาที (เรียลไทม์)', '20 veces por segundo (tiempo real)'],
+    ['A full look reads all text (HP, chat, quests, tooltips…) and takes about a second by itself', 'Tam okuma tüm metni (HP, sohbet, görevler, ipuçları…) okur ve tek başına yaklaşık bir saniye sürer', 'Một lần đọc đầy đủ đọc mọi chữ (HP, chat, nhiệm vụ, chú thích…) và tự nó mất khoảng một giây', 'Baca penuh membaca semua teks (HP, chat, quest, tooltip…) dan butuh sekitar satu detik', '完整读取会识别所有文字（HP、聊天、任务、提示…），本身约需一秒', 'การอ่านเต็มอ่านข้อความทั้งหมด (HP แชท เควสต์ ทูลทิป…) ใช้เวลาราวหนึ่งวินาที', 'Una lectura completa lee todo el texto (HP, chat, misiones, descripciones…) y tarda casi un segundo'],
+    ['Between full reads: only the HP, MP and EXP bars, by their colours (a few milliseconds each)', 'Tam okumalar arasında: yalnızca HP, MP ve EXP çubukları, renklerinden (her biri birkaç milisaniye)', 'Giữa các lần đọc đầy đủ: chỉ thanh HP, MP và EXP, theo màu (mỗi lần vài mili giây)', 'Di antara baca penuh: hanya bar HP, MP, dan EXP, dari warnanya (beberapa milidetik)', '两次完整读取之间：只按颜色读取 HP、MP 和 EXP 条（每次几毫秒）', 'ระหว่างการอ่านเต็ม: เฉพาะแถบ HP MP และ EXP จากสี (ครั้งละไม่กี่มิลลิวินาที)', 'Entre lecturas completas: solo las barras de HP, MP y EXP, por sus colores (unos milisegundos cada una)'],
+    ['now without a pause', 'şimdi aralıksız', 'hiện không nghỉ', 'sekarang tanpa jeda', '当前不间断', 'ตอนนี้ไม่พัก', 'ahora sin pausa'],
+    ['the fast bars need a pause between full reads (1 s or more)', 'hızlı çubuklar tam okumalar arasında ara ister (1 sn veya daha fazla)', 'thanh nhanh cần nghỉ giữa các lần đọc đầy đủ (1 giây trở lên)', 'bar cepat butuh jeda antar baca penuh (1 dtk atau lebih)', '快速条需要完整读取之间有间隔（1 秒或以上）', 'แถบเร็วต้องมีช่วงพักระหว่างการอ่านเต็ม (1 วิขึ้นไป)', 'las barras rápidas necesitan una pausa entre lecturas completas (1 s o más)'],
+    ['bars: {n} reads a second', 'çubuklar: saniyede {n} okuma', 'thanh: {n} lần/giây', 'bar: {n} kali per detik', '血条：每秒 {n} 次', 'แถบ: {n} ครั้ง/วินาที', 'barras: {n} lecturas por segundo'],
   ];
   // Alert texts made by the tracker with names / numbers in them. [regex, translation]; $1.. = parts kept as is, $t1 = part translated too.
   const P = (list) => list.map(([re, out]) => [new RegExp(`^${re}$`), out]);
