@@ -1,10 +1,20 @@
 {
-  "sequence": 2,
-  "latest": "1.46.0",
+  "sequence": 3,
+  "latest": "1.47.0",
   "minimum": "1.45.0",
   "offlineGraceHours": 168,
   "message": "",
   "releases": [
+    {
+      "version": "1.47.0",
+      "url": "https://github.com/zenixtra/sof-tracker/releases/download/v1.47.0/SoF-Tracker-Setup-1.47.0.exe",
+      "sha256": "b5dc8654474babfac205f070127d526df17f0c14611f9b063018c34974569ea8",
+      "size": 769024,
+      "mandatory": false,
+      "date": "2026-10-18",
+      "notes": "SoF Tracker 1.47.0\n\n- Real-time HP / MP / EXP bars: Settings > Screen reader > \"HP / MP / EXP bars\" reads the bars 2, 5, 10 or 20 times a second between full reads (by colour, a few milliseconds each). The dashboard, overlay, phone page and widgets update live, and the low-HP alert reacts within a fraction of a second.\n- Full reads can now run every 1 second, or with no pause at all.\n\nSHA-256 of SoF-Tracker-Setup-1.47.0.exe:\nb5dc8654474babfac205f070127d526df17f0c14611f9b063018c34974569ea8",
+      "instructions": ""
+    },
     {
       "version": "1.46.0",
       "url": "https://github.com/zenixtra/sof-tracker/releases/download/v1.46.0/SoF-Tracker-Setup-1.46.0.exe",
@@ -27,5 +37,5 @@
     }
   ],
   "revoked": [],
-  "issuedAt": "2026-10-18T00:49:19.149Z"
+  "issuedAt": "2026-10-18T20:34:56.193Z"
 }
