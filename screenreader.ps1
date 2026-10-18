@@ -6,7 +6,7 @@
 #   -Once            one look, then stop;  -SaveFrame <file.png>  also save what was captured (checking the regions)
 #   -RingDir <dir>   keep the last -RingSize looks there as f0.jpg … (for death replays and drop pictures)
 param([int]$GamePid = 0, [string]$Image = '', [double]$Interval = 3, [double]$Fast = 0, [string]$Regions = '', [switch]$Once, [string]$SaveFrame = '', [string]$DebugDir = '',
-  [string]$RingDir = '', [int]$RingSize = 12, [string]$IntervalFile = '', [string]$IconIndex = '', [string]$HotbarIds = '', [string]$FontFile = '')
+  [string]$RingDir = '', [int]$RingSize = 12, [string]$IntervalFile = '', [string]$IconIndex = '', [string]$HotbarIds = '', [string]$FontFile = '', [string]$LearnCounts = '')
 #   -IconIndex <f>   data\icon-index.bin: the item and skill icons a buff can show with (built by the tracker)
 #   -IntervalFile <f> "seconds;fast" is read from this file before every pause (the tracker speeds up and slows down
 #                     the reading without restarting it); 0 seconds = the next full look right away
@@ -931,7 +931,7 @@ public static class Counts {
   public static int Count { get { return tpl.Count; } }
   static bool[,] Ink(Bitmap s, int x, int y, int w, int h) {
     var ink = new bool[w, h];
-    for (int j = 0; j < h; j++) for (int i = 0; i < w; i++) { int px = x + i, py = y + j; if (px < 0 || py < 0 || px >= s.Width || py >= s.Height) continue; var c = s.GetPixel(px, py); ink[i, j] = c.R + c.G + c.B >= 330 && c.G >= c.R; }
+    for (int j = 0; j < h; j++) for (int i = 0; i < w; i++) { int px = x + i, py = y + j; if (px < 0 || py < 0 || px >= s.Width || py >= s.Height) continue; var c = s.GetPixel(px, py); ink[i, j] = c.R + c.G + c.B >= 330 && c.G >= c.R + 20 && c.B >= c.R; } // teal
     return ink;
   }
   static double[] Sample(bool[,] ink, int a, int b, int t, int bt) {
@@ -958,6 +958,32 @@ public static class Counts {
     }
     return tpl.Count;
   }
+  // shapes learned from real screenshots ("d:w:digits;…", 0-9 per cell), added to the font's
+  public static void Load(string s) {
+    foreach (var part in s.Split(new[] { ';', '\n' }, StringSplitOptions.RemoveEmptyEntries)) {
+      var p = part.Trim().Split(':'); if (p.Length != 3 || p[0].Length != 1 || p[2].Length != TW * TH) continue;
+      var v = new double[TW * TH]; for (int i = 0; i < v.Length; i++) v[i] = (p[2][i] - '0') / 9.0;
+      tpl.Add(Tuple.Create(p[0][0], int.Parse(p[1]), v));
+    }
+  }
+  // a box whose number is known: its ink columns shared out between the digits by their usual widths (a "1" is
+  // about half as wide), each sampled as a template. Returns "d:w:digits;…" for Load.
+  public static string Learn(Bitmap src, int x, int y, int w, int h, string value) {
+    var ink = Ink(src, x, y, w, h); int top = h, bot = -1, l = w, r = -1;
+    for (int i = 0; i < w; i++) for (int j = 0; j < h; j++) if (ink[i, j]) { top = Math.Min(top, j); bot = Math.Max(bot, j); l = Math.Min(l, i); r = Math.Max(r, i); }
+    if (r < 0) return "";
+    double units = 0; foreach (var ch in value) units += ch == '1' ? 3.5 : 7; double per = (r - l + 2) / units, pos = l;
+    var sb = new System.Text.StringBuilder();
+    foreach (var ch in value) {
+      double wu = (ch == '1' ? 3.5 : 7) * per; int a = (int)Math.Round(pos), b = (int)Math.Round(pos + wu) - 1; pos += wu;
+      // trim the share to its own ink columns
+      while (a < b && !ColInk(ink, a, top, bot)) a++; while (b > a && !ColInk(ink, b - 1, top, bot)) b--;
+      var smp = Sample(ink, a, b, top, bot); sb.Append(ch + ":" + (b - a) + ":");
+      foreach (var v in smp) sb.Append((int)Math.Round(v * 9)); sb.Append(';');
+    }
+    return sb.ToString();
+  }
+  static bool ColInk(bool[,] ink, int c, int t, int b) { for (int j = t; j <= b; j++) if (ink[c, j]) return true; return false; }
   static double Cost(double[] s, double[] t) { double d = 0; for (int i = 0; i < s.Length; i++) d += Math.Abs(s[i] - t[i]); return d / s.Length; }
   // the number in a box (columns split into runs of ink, each read as the cheapest chain of digits);
   // fit: the average cost per digit (lower is better), 9 when nothing was read
@@ -1016,6 +1042,8 @@ if (Test-Path $IconIndex) { try { $null = [SofScreen]::LoadBuffIndex($IconIndex)
 foreach ($id in ($HotbarIds -split ',')) { if ($id -match '^\d+$') { [void][SofScreen]::HotbarIds.Add([uint32]$id) } }
 if (-not $FontFile) { $FontFile = 'C:\NetGame\ScionsOfFate\Client\MG BASIC2.TTF' }
 if (Test-Path -LiteralPath $FontFile) { try { $null = [Counts]::Make($FontFile, [float[]]@(12, 13)) } catch { } }
+# digit shapes learned from real screenshots (-LearnCounts), sharper than the font's: 1553 and 2248 on a 1024x768 window
+[Counts]::Load('1:3:009999999900009000090000900009000090000900004;5:6:009990990009900099940009900004000049900944444;5:5:099990900099000999900009900009000099009944440;3:6:009900099400004000040999400094000090000949992;2:6:099990900900004000090000900094009900990044444;2:7:099940909400009000940009400490009000940044444;4:6:000940099409994099949909490094999990009400044;8:6:099949900990009990040999499009900049900944442')
 
 function OcrLines([System.Drawing.Bitmap]$bmp) { @(OcrRich $bmp | ForEach-Object { $_.text }) }
 # lines with where they are in the picture (x, y, w, h)
@@ -1208,9 +1236,10 @@ function Read-Frame([System.Drawing.Bitmap]$bmp) {
   $hb = [SofScreen]::HotbarItems($bmp)
   $o.hotbar = @(foreach ($h in @($hb -split ';' | Where-Object { $_ })) {
     $slot, $rest = $h -split '=', 2; $key, $at = $rest -split '@'; $xy = $at -split ','; $hx = [int]$xy[0]; $hy = [int]$xy[1]
-    # the count in the slot's bottom-right corner, by the game font's digit shapes (null when it doesn't read well)
-    $fit = 9.0; $txt = [Counts]::Read($bmp, $hx + 12, $hy + 16, 20, 13, [ref]$fit)
-    [ordered]@{ slot = $slot; icon = $key; x = $hx; y = $hy; count = $(if ($txt -match '^\d{1,4}$' -and $fit -le 0.34) { [int]$txt } else { $null }); raw = $txt; fit = [math]::Round($fit, 3) }
+    # the count in the slot's bottom-right corner, by digit shapes (null when it doesn't read well: sharp screen reads fit
+    # about 0.1, blurry or wrong ones about 0.3)
+    $fit = 9.0; $txt = [Counts]::Read($bmp, $hx + 2, $hy + 18, 32, 13, [ref]$fit)
+    [ordered]@{ slot = $slot; icon = $key; x = $hx; y = $hy; count = $(if ($txt -match '^\d{1,4}$' -and $fit -le 0.22) { [int]$txt } else { $null }); raw = $txt; fit = [math]::Round($fit, 3) }
   })
   $o.hotbarMs = $watch.ElapsedMilliseconds - $t1
   # a sharp (uncompressed) picture of the hotbar now and then while it holds counted items, for tuning the digit reader
@@ -1250,6 +1279,7 @@ function Quick-Look($hwnd) {
   } finally { $parts[0].Dispose(); $parts[1].Dispose() }
 }
 
+if ($Image -and $LearnCounts) { $bmp = [System.Drawing.Bitmap]::FromFile($Image); foreach ($s in ($LearnCounts -split ';')) { $p = $s -split ','; [Counts]::Learn($bmp, [int]$p[0] + 2, [int]$p[1] + 18, 32, 13, $p[2]) }; exit 0 }
 if ($Image) { $bmp = [System.Drawing.Bitmap]::FromFile($Image); Read-Frame $bmp; exit 0 }
 if (-not $GamePid) { '{"error":"no game window given"}'; exit 1 }
 while ($true) {

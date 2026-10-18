@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.49.0
+
+- **Potion and ginseng counts read correctly:**
+  - **4-digit counts:** these (e.g. 1553, 2248) were cut off or misread ("2248" became "748"); the reader now reads the slot's whole corner.
+  - **Real digit shapes:** shapes learned from a real screenshot are now used alongside the game font's.
+  - **Stricter colour rule:** teal digits only, so bright parts of the icon no longer get in.
+  - **Doubtful reads rejected:** they are left out instead of shown as a wrong number.
+- A test with that screenshot keeps it that way.
+
 ## 1.48.0
 
 - **Potions and ginseng on the hotbar:** the screen reader recognises potion and ginseng icons in the 1–0 and F1–F10 rows and reads the count in their corner, using digit shapes drawn from the game's own font (MG BASIC 2).

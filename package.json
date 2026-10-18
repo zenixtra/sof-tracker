@@ -1,6 +1,6 @@
 {
   "name": "sof-tracker",
-  "version": "1.48.0",
+  "version": "1.49.0",
   "description": "Live stats tracker for Scions of Fate: reads the game's log files and screen, never the game itself",
   "license": "MIT",
   "private": true,
