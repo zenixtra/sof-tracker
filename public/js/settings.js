@@ -180,7 +180,7 @@ async function loadNotify() {
   }
 }
 for (const [id, key] of [['qtFrom', 'quietFrom'], ['qtTo', 'quietTo']]) $(id).addEventListener('change', () => saveSettings({ [key]: +$(id).value }));
-var KIND_NAMES = { update: 'Tracker updates', danger: 'Danger', watch: 'Watched players', disconnect: 'Disconnects', maintenance: 'Maintenance', timer: 'Boss & event timers', boss: 'Boss predictions', event: 'Events', goal: 'Play-time goals', recap: 'Session recaps', report: 'Weekly reports', milestone: 'Milestones', buff: 'Buff reminders', marker: 'Markers', patch: 'Game updates', checklist: 'Checklist', whisper: 'Whispers & chat', stuck: 'EXP stopped', party: 'Party HP', price: 'Price watches', chat: 'Chat words', digest: 'Daily digest' };
+var KIND_NAMES = { update: 'Tracker updates', potion: 'Potions running low', danger: 'Danger', watch: 'Watched players', disconnect: 'Disconnects', maintenance: 'Maintenance', timer: 'Boss & event timers', boss: 'Boss predictions', event: 'Events', goal: 'Play-time goals', recap: 'Session recaps', report: 'Weekly reports', milestone: 'Milestones', buff: 'Buff reminders', marker: 'Markers', patch: 'Game updates', checklist: 'Checklist', whisper: 'Whispers & chat', stuck: 'EXP stopped', party: 'Party HP', price: 'Price watches', chat: 'Chat words', digest: 'Daily digest' };
 // ---- sounds per alert type (public/sounds.js plays them; the choice is in the tracker's settings)
 let sndFiles = [], sndCfg = null;
 async function loadSounds() {
@@ -310,10 +310,16 @@ renderClocks();
 setInterval(renderClocks, 500);
 
 // ---------------------------------------------------------------- screen reader (Live cards + Settings)
+// "~1h 20m" left at this pace, or how many are used an hour
+const potLine = (p) => `${p.leftMs ? `~${dur(p.leftMs)}` : p.perHour ? t('{n} / hour', { n: p.perHour }) : ''}`;
 function renderScreen() {
   const s = S?.screen;
   const on = !!s && S.game.running;
   $('kHpCard').hidden = !on; $('kExpCard').hidden = !on;
+  // potions and ginseng counted on the hotbar: the count, red below the alert limit, and how long it lasts
+  const pots = on ? (S.potions || []).filter((p) => !p.stale) : [];
+  $('kPotCard').hidden = !pots.length;
+  if (pots.length) $('kPots').innerHTML = pots.map((p) => `<div class="potrow ${S.settings?.potionLow && p.count < S.settings.potionLow ? 'low' : ''}" title="${esc(p.name)}"><span class="notr">${esc(p.slot || '')} ${esc(p.name)}</span><b class="mono">${num(p.count)}</b><small class="muted">${esc(potLine(p))}</small></div>`).join('');
   // the selected target, recognised from the name under the minimap
   const tg = on ? s.target : null;
   $('kTargetCard').hidden = !tg;

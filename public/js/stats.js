@@ -37,6 +37,24 @@ async function ask(q) {
 $('askForm').addEventListener('submit', (e) => { e.preventDefault(); ask($('askQ').value); });
 $('askEx').addEventListener('click', (e) => { const b = e.target.closest('[data-ask]'); if (!b) return; $('askQ').value = b.dataset.ask; ask(b.dataset.ask); });
 
+// ---- potions and ginseng counted on the hotbar: left, per hour, how long it lasts, how long earlier batches lasted
+let potChar = null;
+async function loadPotions() {
+  const r = await getJSON(`/api/potion-stock${potChar ? `?char=${encodeURIComponent(potChar)}` : ''}`).catch(() => null);
+  if (!r) return;
+  potChar = r.character;
+  $('potChar').innerHTML = (r.chars.length ? r.chars : [r.character].filter(Boolean)).map((c) => `<option ${c === r.character ? 'selected' : ''}>${esc(c)}</option>`).join('');
+  if (document.activeElement !== $('potLow')) $('potLow').value = String(r.limit ?? 0);
+  $('potRows').innerHTML = r.items.map((p) => `<tr class="${r.limit && p.count < r.limit ? 'hl' : ''}"><td class="notr">${esc(p.name)}</td><td class="mono">${esc(p.slot || '')}</td>
+    <td class="num"><b>${num(p.count)}</b>${p.stale ? `<div class="muted" style="font-size:11px">${esc(t('seen {when}', { when: dateTime(p.seenAt) }))}</div>` : ''}</td>
+    <td class="num">${p.perHour != null ? num(p.perHour) : '—'}</td><td class="num">${p.leftMs ? dur(p.leftMs) : '—'}</td>
+    <td class="num">${p.batch ? `${t('{n} used', { n: num(p.batch.used) })}<div class="muted" style="font-size:11px">${esc(t('of {n}, in {d} of play', { n: num(p.batch.from), d: dur(p.batch.playMs) }))}</div>` : '—'}</td>
+    <td style="font-size:12px">${p.last.length ? p.last.map((b) => `${esc(t('{n} in {d}', { n: num(b.used), d: dur(b.playMs) }))}${b.perHour ? ` <span class="muted">(${num(b.perHour)}/h)</span>` : ''}`).join('<br>') : `<span class="muted">${esc(t('none finished yet'))}</span>`}</td></tr>`).join('')
+    || `<tr><td colspan="7" class="empty">${esc(t('Nothing counted yet: put potions or ginseng on your hotbar and play with the screen reader on.'))}</td></tr>`;
+}
+$('potChar').addEventListener('change', () => { potChar = $('potChar').value; loadPotions(); });
+$('potLow').addEventListener('change', async () => { await post('/api/settings', { potionLow: +$('potLow').value }); loadPotions(); });
+
 // ---- skill setup: the character's skill bar and auto-combat setup from the game files, with what to improve
 let skChar = null;
 async function loadSkillSetup() {
@@ -60,6 +78,7 @@ $('skChar').addEventListener('change', () => { skChar = $('skChar').value; loadS
 async function loadStats() {
   loadCompare();
   loadSkillSetup();
+  loadPotions();
   const [st, bs] = await Promise.all([getJSON('/api/stats'), getJSON('/api/bosses')]);
   const p = st.patterns;
   const DAYS = [t('Mon'), t('Tue'), t('Wed'), t('Thu'), t('Fri'), t('Sat'), t('Sun')];

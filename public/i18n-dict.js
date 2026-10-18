@@ -2217,11 +2217,32 @@
     ['now without a pause', 'şimdi aralıksız', 'hiện không nghỉ', 'sekarang tanpa jeda', '当前不间断', 'ตอนนี้ไม่พัก', 'ahora sin pausa'],
     ['the fast bars need a pause between full reads (1 s or more)', 'hızlı çubuklar tam okumalar arasında ara ister (1 sn veya daha fazla)', 'thanh nhanh cần nghỉ giữa các lần đọc đầy đủ (1 giây trở lên)', 'bar cepat butuh jeda antar baca penuh (1 dtk atau lebih)', '快速条需要完整读取之间有间隔（1 秒或以上）', 'แถบเร็วต้องมีช่วงพักระหว่างการอ่านเต็ม (1 วิขึ้นไป)', 'las barras rápidas necesitan una pausa entre lecturas completas (1 s o más)'],
     ['bars: {n} reads a second', 'çubuklar: saniyede {n} okuma', 'thanh: {n} lần/giây', 'bar: {n} kali per detik', '血条：每秒 {n} 次', 'แถบ: {n} ครั้ง/วินาที', 'barras: {n} lecturas por segundo'],
+    ['Potions on the hotbar', 'Hızlı çubuktaki iksirler', 'Bình trên thanh phím tắt', 'Ramuan di hotbar', '快捷栏上的药水', 'ยาบนแถบลัด', 'Pociones en la barra rápida'],
+    ['Potions & ginseng', 'İksirler ve ginseng', 'Bình máu & nhân sâm', 'Ramuan & ginseng', '药水和人参', 'ยาและโสม', 'Pociones y ginseng'],
+    ['counted on your hotbar by the screen reader', 'ekran okuyucu tarafından hızlı çubuğunda sayılır', 'trình đọc màn hình đếm trên thanh phím tắt', 'dihitung di hotbar oleh pembaca layar', '由屏幕读取在快捷栏上计数', 'ตัวอ่านหน้าจอนับบนแถบลัด', 'contadas en tu barra rápida por el lector de pantalla'],
+    ['alert when fewer than', 'şundan az kalınca uyar:', 'báo khi còn ít hơn', 'peringatan jika kurang dari', '少于此数时提醒', 'แจ้งเตือนเมื่อเหลือน้อยกว่า', 'avisar cuando queden menos de'],
+    ['are left (0 = off)', 'kaldığında (0 = kapalı)', 'cái (0 = tắt)', 'tersisa (0 = mati)', '个（0 = 关闭）', 'ชิ้น (0 = ปิด)', '(0 = desactivado)'],
+    ['Key', 'Tuş', 'Phím', 'Tombol', '按键', 'ปุ่ม', 'Tecla'],
+    ['Left', 'Kalan', 'Còn lại', 'Sisa', '剩余', 'เหลือ', 'Quedan'],
+    ['Used / hour', 'Kullanım / saat', 'Dùng / giờ', 'Terpakai / jam', '每小时用量', 'ใช้ / ชม.', 'Usadas / hora'],
+    ['Lasts about', 'Yaklaşık yeter', 'Đủ dùng khoảng', 'Cukup sekitar', '大约可用', 'พอใช้ราว', 'Duran unos'],
+    ['This batch', 'Bu parti', 'Đợt này', 'Batch ini', '本批', 'ชุดนี้', 'Esta tanda'],
+    ['Earlier batches lasted', 'Önceki partiler dayandı', 'Các đợt trước dùng được', 'Batch sebelumnya bertahan', '之前几批用了', 'ชุดก่อนหน้าใช้ได้', 'Las tandas anteriores duraron'],
+    ['Put your potions and ginseng on the hotbar (1–0 or F1–F10). A count is believed after two reads agree; buying or picking up more starts a new batch. Time away (over 5 minutes between reads) doesn\'t count as use.', 'İksirlerini ve ginsengini hızlı çubuğa koy (1–0 veya F1–F10). Bir sayı iki okuma aynı olunca kabul edilir; daha fazla almak veya toplamak yeni bir parti başlatır. Uzakta geçen süre (okumalar arası 5 dakikadan fazla) kullanım sayılmaz.', 'Đặt bình máu và nhân sâm lên thanh phím tắt (1–0 hoặc F1–F10). Số lượng được tin khi hai lần đọc trùng nhau; mua hoặc nhặt thêm sẽ bắt đầu đợt mới. Thời gian vắng (hơn 5 phút giữa các lần đọc) không tính là dùng.', 'Taruh ramuan dan ginseng di hotbar (1–0 atau F1–F10). Jumlah dipercaya setelah dua bacaan sama; membeli atau memungut lagi memulai batch baru. Waktu pergi (lebih dari 5 menit antar bacaan) tidak dihitung.', '把药水和人参放在快捷栏（1–0 或 F1–F10）。两次读取一致才会采信；购买或拾取更多会开始新的一批。离开的时间（两次读取间隔超过 5 分钟）不算使用。', 'วางยาและโสมบนแถบลัด (1–0 หรือ F1–F10) จำนวนจะเชื่อเมื่ออ่านตรงกันสองครั้ง การซื้อหรือเก็บเพิ่มเริ่มชุดใหม่ เวลาที่ไม่อยู่ (เกิน 5 นาทีระหว่างการอ่าน) ไม่นับเป็นการใช้', 'Pon tus pociones y ginseng en la barra rápida (1–0 o F1–F10). Una cantidad se acepta cuando dos lecturas coinciden; comprar o recoger más empieza una tanda nueva. El tiempo fuera (más de 5 minutos entre lecturas) no cuenta como uso.'],
+    ['{n} / hour', '{n} / saat', '{n} / giờ', '{n} / jam', '{n} / 小时', '{n} / ชม.', '{n} / hora'],
+    ['seen {when}', 'görüldü {when}', 'thấy lúc {when}', 'terlihat {when}', '于 {when} 看到', 'เห็นเมื่อ {when}', 'visto {when}'],
+    ['{n} used', '{n} kullanıldı', 'đã dùng {n}', '{n} terpakai', '已用 {n}', 'ใช้ไป {n}', '{n} usadas'],
+    ['of {n}, in {d} of play', '{n} içinden, {d} oyunda', 'trong {n}, sau {d} chơi', 'dari {n}, dalam {d} bermain', '共 {n}，玩了 {d}', 'จาก {n} ใน {d} ของการเล่น', 'de {n}, en {d} de juego'],
+    ['{n} in {d}', '{d} içinde {n}', '{n} trong {d}', '{n} dalam {d}', '{d} 内 {n}', '{n} ใน {d}', '{n} en {d}'],
+    ['none finished yet', 'henüz biten yok', 'chưa đợt nào hết', 'belum ada yang habis', '还没有用完的', 'ยังไม่มีชุดที่หมด', 'ninguna terminada aún'],
+    ['Nothing counted yet: put potions or ginseng on your hotbar and play with the screen reader on.', 'Henüz sayılmadı: iksir veya ginsengi hızlı çubuğa koy ve ekran okuyucu açıkken oyna.', 'Chưa đếm được: đặt bình máu hoặc nhân sâm lên thanh phím tắt và chơi khi bật trình đọc màn hình.', 'Belum ada yang dihitung: taruh ramuan atau ginseng di hotbar dan main dengan pembaca layar aktif.', '还没有计数：把药水或人参放到快捷栏，开着屏幕读取玩游戏。', 'ยังไม่ได้นับ: วางยาหรือโสมบนแถบลัดแล้วเล่นโดยเปิดตัวอ่านหน้าจอ', 'Aún no se ha contado nada: pon pociones o ginseng en tu barra rápida y juega con el lector de pantalla activado.'],
+    ['Potions running low', 'İksirler azalıyor', 'Sắp hết bình', 'Ramuan menipis', '药水快用完', 'ยาใกล้หมด', 'Pociones escasas'],
   ];
   // Alert texts made by the tracker with names / numbers in them. [regex, translation]; $1.. = parts kept as is, $t1 = part translated too.
   const P = (list) => list.map(([re, out]) => [new RegExp(`^${re}$`), out]);
   const PATTERNS = {
     tr: P([
+      ['Only (\\d+) (.+) left \\((.+)\\)', 'Sadece $1 $2 kaldı ($3)'],
       ['Update required: SoF Tracker (.+)', 'Güncelleme gerekli: SoF Tracker $1'],
       ['Updated to SoF Tracker (.+)', 'SoF Tracker $1 sürümüne güncellendi'],
       ['SoF Tracker could not check for updates', 'SoF Tracker güncellemeleri kontrol edemedi'],
@@ -2294,6 +2315,7 @@
       ['Whisper from (.+)', '$1 fısıldadı'], ['(.+) mentioned you', '$1 senden bahsetti'], ['No EXP for (\\d+) min', '$1 dakikadır EXP yok'], ['(.+) died', '$1 öldü'], ['(.+): HP (\\d+)%', '$1: HP %$2'], ['(.+) sells (.+) for (.+)', '$1, $2 satıyor: $3'], ['(.+) buys (.+) for (.+)', '$1, $2 alıyor: $3'], ['your price: at most (.+)', 'senin fiyatın: en fazla $1'], ['your price: at least (.+)', 'senin fiyatın: en az $1'], ['EXP \\+(.+)%', 'EXP +%$1'], ['EXP \\+(.+)% \\((\\d+) level-ups?\\)', 'EXP +%$1 ($2 seviye)'], ['(\\d+) kills', '$1 öldürme'], ['(\\d+) deaths?', '$1 ölüm'], ['(\\d+) drops announced for your party', 'grubun için $1 düşüş duyuruldu'], ['most EXP in (.+)', 'en çok EXP: $1'],
     ]),
     vi: P([
+      ['Only (\\d+) (.+) left \\((.+)\\)', 'Chỉ còn $1 $2 ($3)'],
       ['Update required: SoF Tracker (.+)', 'Cần cập nhật: SoF Tracker $1'],
       ['Updated to SoF Tracker (.+)', 'Đã cập nhật lên SoF Tracker $1'],
       ['SoF Tracker could not check for updates', 'SoF Tracker không kiểm tra được cập nhật'],
@@ -2366,6 +2388,7 @@
       ['Whisper from (.+)', 'Tin riêng từ $1'], ['(.+) mentioned you', '$1 nhắc đến bạn'], ['No EXP for (\\d+) min', 'Không có EXP trong $1 phút'], ['(.+) died', '$1 đã chết'], ['(.+): HP (\\d+)%', '$1: HP $2%'], ['(.+) sells (.+) for (.+)', '$1 bán $2 giá $3'], ['(.+) buys (.+) for (.+)', '$1 mua $2 giá $3'], ['your price: at most (.+)', 'giá của bạn: tối đa $1'], ['your price: at least (.+)', 'giá của bạn: tối thiểu $1'], ['EXP \\+(.+)%', 'EXP +$1%'], ['EXP \\+(.+)% \\((\\d+) level-ups?\\)', 'EXP +$1% ($2 lần lên cấp)'], ['(\\d+) kills', '$1 lần hạ quái'], ['(\\d+) deaths?', '$1 lần chết'], ['(\\d+) drops announced for your party', '$1 lần rơi đồ của tổ đội được thông báo'], ['most EXP in (.+)', 'nhiều EXP nhất ở $1'],
     ]),
     id: P([
+      ['Only (\\d+) (.+) left \\((.+)\\)', 'Tinggal $1 $2 ($3)'],
       ['Update required: SoF Tracker (.+)', 'Pembaruan diperlukan: SoF Tracker $1'],
       ['Updated to SoF Tracker (.+)', 'Diperbarui ke SoF Tracker $1'],
       ['SoF Tracker could not check for updates', 'SoF Tracker tidak bisa memeriksa pembaruan'],
@@ -2438,6 +2461,7 @@
       ['Whisper from (.+)', 'Bisikan dari $1'], ['(.+) mentioned you', '$1 menyebut Anda'], ['No EXP for (\\d+) min', 'Tidak ada EXP selama $1 menit'], ['(.+) died', '$1 mati'], ['(.+): HP (\\d+)%', '$1: HP $2%'], ['(.+) sells (.+) for (.+)', '$1 menjual $2 seharga $3'], ['(.+) buys (.+) for (.+)', '$1 membeli $2 seharga $3'], ['your price: at most (.+)', 'harga Anda: paling mahal $1'], ['your price: at least (.+)', 'harga Anda: paling murah $1'], ['EXP \\+(.+)%', 'EXP +$1%'], ['EXP \\+(.+)% \\((\\d+) level-ups?\\)', 'EXP +$1% ($2 naik level)'], ['(\\d+) kills', '$1 kill'], ['(\\d+) deaths?', '$1 kematian'], ['(\\d+) drops announced for your party', '$1 drop party Anda diumumkan'], ['most EXP in (.+)', 'EXP terbanyak di $1'],
     ]),
     zh: P([
+      ['Only (\\d+) (.+) left \\((.+)\\)', '只剩 $1 个 $2（$3）'],
       ['Update required: SoF Tracker (.+)', '需要更新：SoF Tracker $1'],
       ['Updated to SoF Tracker (.+)', '已更新到 SoF Tracker $1'],
       ['SoF Tracker could not check for updates', 'SoF Tracker 无法检查更新'],
@@ -2510,6 +2534,7 @@
       ['Whisper from (.+)', '来自 $1 的私聊'], ['(.+) mentioned you', '$1 提到了你'], ['No EXP for (\\d+) min', '$1 分钟没有经验'], ['(.+) died', '$1 死亡'], ['(.+): HP (\\d+)%', '$1：血量 $2%'], ['(.+) sells (.+) for (.+)', '$1 出售 $2，价格 $3'], ['(.+) buys (.+) for (.+)', '$1 收购 $2，价格 $3'], ['your price: at most (.+)', '你的价格：不高于 $1'], ['your price: at least (.+)', '你的价格：不低于 $1'], ['EXP \\+(.+)%', '经验 +$1%'], ['EXP \\+(.+)% \\((\\d+) level-ups?\\)', '经验 +$1%（升级 $2 次）'], ['(\\d+) kills', '$1 次击杀'], ['(\\d+) deaths?', '$1 次死亡'], ['(\\d+) drops announced for your party', '队伍有 $1 次掉落公告'], ['most EXP in (.+)', '经验最多：$1'],
     ]),
     th: P([
+      ['Only (\\d+) (.+) left \\((.+)\\)', 'เหลือ $2 แค่ $1 ($3)'],
       ['Update required: SoF Tracker (.+)', 'ต้องอัปเดต: SoF Tracker $1'],
       ['Updated to SoF Tracker (.+)', 'อัปเดตเป็น SoF Tracker $1 แล้ว'],
       ['SoF Tracker could not check for updates', 'SoF Tracker ตรวจหาอัปเดตไม่ได้'],
@@ -2582,6 +2607,7 @@
       ['Whisper from (.+)', 'กระซิบจาก $1'], ['(.+) mentioned you', '$1 พูดถึงคุณ'], ['No EXP for (\\d+) min', 'ไม่มี EXP มา $1 นาที'], ['(.+) died', '$1 ตาย'], ['(.+): HP (\\d+)%', '$1: HP $2%'], ['(.+) sells (.+) for (.+)', '$1 ขาย $2 ราคา $3'], ['(.+) buys (.+) for (.+)', '$1 ซื้อ $2 ราคา $3'], ['your price: at most (.+)', 'ราคาของคุณ: ไม่เกิน $1'], ['your price: at least (.+)', 'ราคาของคุณ: อย่างน้อย $1'], ['EXP \\+(.+)%', 'EXP +$1%'], ['EXP \\+(.+)% \\((\\d+) level-ups?\\)', 'EXP +$1% (เลเวลอัป $2 ครั้ง)'], ['(\\d+) kills', 'ฆ่า $1 ตัว'], ['(\\d+) deaths?', 'ตาย $1 ครั้ง'], ['(\\d+) drops announced for your party', 'ประกาศดรอปของปาร์ตี้ $1 ครั้ง'], ['most EXP in (.+)', 'EXP มากที่สุดที่ $1'],
     ]),
     es: P([
+      ['Only (\\d+) (.+) left \\((.+)\\)', 'Solo quedan $1 $2 ($3)'],
       ['Update required: SoF Tracker (.+)', 'Actualización obligatoria: SoF Tracker $1'],
       ['Updated to SoF Tracker (.+)', 'Actualizado a SoF Tracker $1'],
       ['SoF Tracker could not check for updates', 'SoF Tracker no pudo buscar actualizaciones'],

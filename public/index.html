@@ -93,6 +93,7 @@
     <div class="kpi" id="kHpCard" hidden><label>HP / MP</label><div class="v" id="kHp">—</div><div class="bar hp" id="kHpBar"><i></i></div><div class="bar mp" id="kMpBar"><i></i></div><div class="sub" id="kHpSub">&nbsp;</div></div>
     <div class="kpi" id="kTargetCard" hidden><label>Target</label><div class="v notr" id="kTarget" style="font-size:18px">—</div><div class="sub" id="kTargetSub">&nbsp;</div></div>
     <div class="kpi" id="kExpCard" hidden><label>EXP</label><div class="v" id="kExp">—</div><div class="bar" id="kExpBar"><i></i></div><div class="sub" id="kExpSub">&nbsp;</div></div>
+    <div class="kpi" id="kPotCard" hidden><label>Potions on the hotbar</label><div id="kPots" class="potlist"></div></div>
     <div class="kpi" id="kPartyCard" hidden><label>Party HP</label><div id="kParty" class="partyhp"></div></div>
     <div class="kpi" id="kMiniCard" hidden><label>Minimap</label><div class="minimini"><svg id="kMiniSvg" viewBox="-85 -85 170 170" width="64" height="64" role="img" aria-label="Players on your minimap"></svg><div><div class="v" id="kMini">—</div><div class="sub" id="kMiniSub">&nbsp;</div></div></div></div>
     <div class="kpi" id="kGoldCard" data-feature="gold" hidden><label>Gold</label><div class="v" id="kGold">—</div><div class="sub" id="kGoldSub">&nbsp;</div></div>
@@ -696,6 +697,12 @@
         <label class="muted" style="font-size:12px">Ki <input id="asKi" type="number" min="0" style="width:110px"></label>
         <label class="muted" style="font-size:12px">Sky Stones <input id="asStones" type="number" min="0" style="width:70px"></label></div>
       <div id="asBody"></div>
+    </section>
+    <section class="panel c12" id="potPanel">
+      <h2>Potions &amp; ginseng <small id="potInfo">counted on your hotbar by the screen reader</small></h2>
+      <div class="tools"><select id="potChar"></select><label class="muted" style="font-size:12px">alert when fewer than <input id="potLow" type="number" min="0" max="9999" step="10" style="width:70px"> are left (0 = off)</label></div>
+      <div class="scroll"><table><thead><tr><th>Item</th><th>Key</th><th class="num">Left</th><th class="num">Used / hour</th><th class="num">Lasts about</th><th class="num">This batch</th><th>Earlier batches lasted</th></tr></thead><tbody id="potRows"></tbody></table></div>
+      <p class="muted" style="font-size:12px;margin-bottom:0">Put your potions and ginseng on the hotbar (1–0 or F1–F10). A count is believed after two reads agree; buying or picking up more starts a new batch. Time away (over 5 minutes between reads) doesn't count as use.</p>
     </section>
     <section class="panel c12" id="skillPanel">
       <h2>Skill setup <small id="skInfo">your skill bar and auto-combat setup, read from the game's own files</small></h2>

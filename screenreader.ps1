@@ -6,10 +6,12 @@
 #   -Once            one look, then stop;  -SaveFrame <file.png>  also save what was captured (checking the regions)
 #   -RingDir <dir>   keep the last -RingSize looks there as f0.jpg … (for death replays and drop pictures)
 param([int]$GamePid = 0, [string]$Image = '', [double]$Interval = 3, [double]$Fast = 0, [string]$Regions = '', [switch]$Once, [string]$SaveFrame = '', [string]$DebugDir = '',
-  [string]$RingDir = '', [int]$RingSize = 12, [string]$IntervalFile = '', [string]$IconIndex = '')
+  [string]$RingDir = '', [int]$RingSize = 12, [string]$IntervalFile = '', [string]$IconIndex = '', [string]$HotbarIds = '', [string]$FontFile = '')
 #   -IconIndex <f>   data\icon-index.bin: the item and skill icons a buff can show with (built by the tracker)
 #   -IntervalFile <f> "seconds;fast" is read from this file before every pause (the tracker speeds up and slows down
 #                     the reading without restarting it); 0 seconds = the next full look right away
+#   -HotbarIds <ids> item ids to look for on the hotbar (comma separated: potions, ginseng); -FontFile: the game's font
+#                    (MG BASIC2.TTF), for reading the counts on them
 #   -Fast <n>        n fast looks per second during the pause: only the HP / MP / EXP bars, by pixel colour ({"q":1,…})
 $ring = 0; $look = 0
 $ErrorActionPreference = 'Stop'
@@ -105,6 +107,8 @@ public static class SofScreen {
       if (mode == 2) ink = IsChatColor(s[si + 2], s[si + 1], s[si]);
       // mode 3: red text only (the skill levels drawn in red on the skill icons)
       else if (mode == 3) { int rr = s[si + 2], gg = s[si + 1], bb = s[si]; ink = rr > 150 && gg < 110 && bb < 110 && rr - gg > 80; }
+      // mode 4: the hotbar's item counts, pale green-cyan (not the icon under them: reddish, or leaf green with little blue)
+      else if (mode == 4) { int rr = s[si + 2], gg = s[si + 1], bb = s[si]; ink = rr + gg + bb >= 330 && gg >= rr; }
       else {
         double lum = mode == 1 ? Math.Max(s[si], Math.Max(s[si + 1], s[si + 2])) : 0.11 * s[si] + 0.59 * s[si + 1] + 0.3 * s[si + 2];
         ink = lum > minLum;
@@ -452,7 +456,11 @@ public static class SofScreen {
   }
   // icons of the index whose top-left is in [x0, x1) x [y0, y1] (x1: where the area ends on the right); set 0: any
   // set, else only that one (2: skill icons in the skill window). "set:id@x,y;…", best fits first, no overlaps
-  public static string MatchIconArea(Bitmap src, int x0, int y0, int x1, int y1, int setOnly) {
+  public static string MatchIconArea(Bitmap src, int x0, int y0, int x1, int y1, int setOnly) { return MatchIconArea(src, x0, y0, x1, y1, setOnly, false); }
+  // hotbar: the slot's key label (top left, "F3") and the item count (bottom right, "102") are drawn over the icon, so
+  // those cells are left out of the comparison
+  static bool HotbarSkip(int c) { int cx = c % 16, cy = c / 16; return (cy >= 8 && cx >= 4) || (cy < 5 && cx < 8); }
+  public static string MatchIconArea(Bitmap src, int x0, int y0, int x1, int y1, int setOnly, bool hotbar) {
     if (bxIndex == null) return "";
     x0 = Math.Max(0, x0); y0 = Math.Max(0, y0); x1 = Math.Min(src.Width, x1); y1 = Math.Min(src.Height - 33, y1);
     if (x1 - x0 < 32 || y1 <= y0) return "";
@@ -480,8 +488,8 @@ public static class SofScreen {
         var rgb = bxRgb[i]; var mask = bxMask[i];
         // a quick look at four cells (one may differ: a label in that corner), then all of them
         int miss = 0;
-        foreach (var c in new[] { 4 * 16 + 4, 4 * 16 + 11, 11 * 16 + 4, 11 * 16 + 11 }) {
-          if (!mask[c]) continue;
+        foreach (var c in new[] { 4 * 16 + 4, 4 * 16 + 11, 11 * 16 + 4, 11 * 16 + 11, 6 * 16 + 9, 7 * 16 + 2 }) {
+          if (!mask[c] || (hotbar && HotbarSkip(c))) continue;
           int cx = c % 16, cy = c / 16;
           int dr = (int)(box(0, x + cx * 2, y + cy * 2, 2, 2) / 4) - rgb[c * 3], dg = (int)(box(1, x + cx * 2, y + cy * 2, 2, 2) / 4) - rgb[c * 3 + 1], db = (int)(box(2, x + cx * 2, y + cy * 2, 2, 2) / 4) - rgb[c * 3 + 2];
           if (Math.Abs(dr) + Math.Abs(dg) + Math.Abs(db) > 120 && ++miss > 1) break;
@@ -489,13 +497,13 @@ public static class SofScreen {
         if (miss > 1) continue;
         long sum = 0; int n = 0, bad = 0;
         for (int c = 0; c < 256; c++) {
-          if (!mask[c]) continue;
+          if (!mask[c] || (hotbar && HotbarSkip(c))) continue;
           int cx = c % 16, cy = c / 16;
           int d = Math.Abs((int)(box(0, x + cx * 2, y + cy * 2, 2, 2) / 4) - rgb[c * 3]) + Math.Abs((int)(box(1, x + cx * 2, y + cy * 2, 2, 2) / 4) - rgb[c * 3 + 1]) + Math.Abs((int)(box(2, x + cx * 2, y + cy * 2, 2, 2) / 4) - rgb[c * 3 + 2]);
           sum += d; n++; if (d > 120) bad++;
         }
         // close on average, and only a corner's worth of cells different (labels drawn over the icon: "1日", "x2", "特")
-        if (n >= 128 && sum / (double)n <= 55 && bad <= n / 4) hits.Add(Tuple.Create(sum / (double)n, i, x0 + x, y0 + y));
+        if (n >= (hotbar ? 80 : 128) && sum / (double)n <= 55 && bad <= n / 4) hits.Add(Tuple.Create(sum / (double)n, i, x0 + x, y0 + y));
       }
     }
     hits.Sort((a, b) => a.Item1.CompareTo(b.Item1));
@@ -504,6 +512,51 @@ public static class SofScreen {
       var r = new Rectangle(h.Item3, h.Item4, 32, 32);
       if (taken.Exists(t => { var q = Rectangle.Intersect(t, r); return q.Width * q.Height > 200; })) continue;
       taken.Add(r); found.Add(bxSet[h.Item2] + ":" + bxId[h.Item2] + "@" + h.Item3 + "," + h.Item4);
+    }
+    return string.Join(";", found);
+  }
+  // the hotbar's item icons: the 10 slots of the F1–F10 row (icon top-left at x = width/2 - 148 + 39·i, y = height - 49)
+  // and of the 1–0 row above it (40 px higher), each compared with every item icon of the index a few pixels around
+  // its place (the count and the key label are left out). "F3=1:1000000970@441,719;…"
+  // the items to look for on the hotbar (potions, ginseng…: set by the tracker); empty = every item (slow)
+  public static System.Collections.Generic.HashSet<uint> HotbarIds = new System.Collections.Generic.HashSet<uint>();
+  public static string HotbarItems(Bitmap src) {
+    if (bxIndex == null || src.Width < 700 || src.Height < 200) return "";
+    int stride; var s = Bytes(src, out stride);
+    Func<int, int, int, int> px = (x, y, c) => s[y * stride + x * 3 + (2 - c)]; // c: 0 R, 1 G, 2 B
+    Func<int, int, int, int> cell = (x, y, c) => (px(x, y, c) + px(x + 1, y, c) + px(x, y + 1, c) + px(x + 1, y + 1, c)) / 4;
+    var quick = new[] { 4 * 16 + 11, 6 * 16 + 9, 3 * 16 + 12, 2 * 16 + 9, 5 * 16 + 14, 7 * 16 + 2 };
+    var found = new System.Collections.Generic.List<string>();
+    for (int row = 0; row < 2; row++) for (int i = 0; i < 10; i++) {
+      int bx = src.Width / 2 - 148 + 39 * i, by = src.Height - 49 - 40 * row;
+      double best = 999; int bestI = -1, bestX = 0, bestY = 0;
+      for (int dy = -2; dy <= 2; dy++) for (int dx = -3; dx <= 3; dx++) {
+        int x = bx + dx, y = by + dy;
+        if (x < 0 || y < 0 || x + 32 >= src.Width || y + 32 >= src.Height) continue;
+        for (int k = 0; k < bxRgb.Length; k++) {
+          if (bxSet[k] != 1 || (HotbarIds.Count > 0 && !HotbarIds.Contains(bxId[k]))) continue;
+          var rgb = bxRgb[k]; var mask = bxMask[k];
+          int miss = 0;
+          foreach (var c in quick) {
+            if (!mask[c]) continue;
+            int cx = c % 16, cy = c / 16, d = 0;
+            for (int ch = 0; ch < 3; ch++) d += Math.Abs(cell(x + cx * 2, y + cy * 2, ch) - rgb[c * 3 + ch]);
+            if (d > 120 && ++miss > 1) break;
+          }
+          if (miss > 1) continue;
+          long sum = 0; int n = 0, bad = 0;
+          for (int c = 0; c < 256; c++) {
+            if (!mask[c] || HotbarSkip(c)) continue;
+            int cx = c % 16, cy = c / 16, d = 0;
+            for (int ch = 0; ch < 3; ch++) d += Math.Abs(cell(x + cx * 2, y + cy * 2, ch) - rgb[c * 3 + ch]);
+            sum += d; n++; if (d > 120) bad++;
+          }
+          if (n < 60) continue;
+          double avg = sum / (double)n;
+          if (avg <= 50 && bad <= n / 5 && avg < best) { best = avg; bestI = k; bestX = x; bestY = y; }
+        }
+      }
+      if (bestI >= 0) found.Add((row == 0 ? "F" + (i + 1) : (i == 9 ? "0" : (i + 1).ToString())) + "=" + bxSet[bestI] + ":" + bxId[bestI] + "@" + bestX + "," + bestY);
     }
     return string.Join(";", found);
   }
@@ -870,6 +923,69 @@ public static class Digits {
     }
   }
 }
+// the hotbar's item counts ("102" in a slot's corner): small, bright green-leaning digits in the game's own font
+// (MG BASIC 2, shipped in the Client folder). Templates are drawn from that font at the sizes that match the screen.
+public static class Counts {
+  public const int TW = 5, TH = 9;
+  static System.Collections.Generic.List<Tuple<char, int, double[]>> tpl = new System.Collections.Generic.List<Tuple<char, int, double[]>>();
+  public static int Count { get { return tpl.Count; } }
+  static bool[,] Ink(Bitmap s, int x, int y, int w, int h) {
+    var ink = new bool[w, h];
+    for (int j = 0; j < h; j++) for (int i = 0; i < w; i++) { int px = x + i, py = y + j; if (px < 0 || py < 0 || px >= s.Width || py >= s.Height) continue; var c = s.GetPixel(px, py); ink[i, j] = c.R + c.G + c.B >= 330 && c.G >= c.R; }
+    return ink;
+  }
+  static double[] Sample(bool[,] ink, int a, int b, int t, int bt) {
+    var o = new double[TW * TH]; int w = b - a, h = bt - t + 1;
+    for (int r = 0; r < TH; r++) for (int c = 0; c < TW; c++) {
+      int x0 = a + c * w / TW, x1 = Math.Max(x0 + 1, a + (c + 1) * w / TW), y0 = t + r * h / TH, y1 = Math.Max(y0 + 1, t + (r + 1) * h / TH);
+      int n = 0, k = 0; for (int yy = y0; yy < y1; yy++) for (int xx = x0; xx < x1; xx++) { n++; if (ink[xx, yy]) k++; }
+      o[r * TW + c] = n > 0 ? k / (double)n : 0;
+    }
+    return o;
+  }
+  // draw 0–9 with the game's font at each pixel size: each digit's ink cropped to its box, and its width
+  public static int Make(string fontFile, float[] sizes) {
+    tpl.Clear();
+    var pfc = new System.Drawing.Text.PrivateFontCollection(); pfc.AddFontFile(fontFile);
+    foreach (var px in sizes) using (var f = new Font(pfc.Families[0], px, FontStyle.Regular, GraphicsUnit.Pixel)) foreach (char ch in "0123456789") {
+      using (var b = new Bitmap(40, 40)) using (var g = Graphics.FromImage(b)) {
+        g.Clear(Color.Black); g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
+        g.DrawString(ch.ToString(), f, Brushes.White, 4, 4);
+        var ink = new bool[40, 40]; int l = 40, r = -1, t = 40, bt = -1;
+        for (int y = 0; y < 40; y++) for (int x = 0; x < 40; x++) if (b.GetPixel(x, y).R > 128) { ink[x, y] = true; l = Math.Min(l, x); r = Math.Max(r, x); t = Math.Min(t, y); bt = Math.Max(bt, y); }
+        if (r >= 0) tpl.Add(Tuple.Create(ch, r - l + 1, Sample(ink, l, r + 1, t, bt)));
+      }
+    }
+    return tpl.Count;
+  }
+  static double Cost(double[] s, double[] t) { double d = 0; for (int i = 0; i < s.Length; i++) d += Math.Abs(s[i] - t[i]); return d / s.Length; }
+  // the number in a box (columns split into runs of ink, each read as the cheapest chain of digits);
+  // fit: the average cost per digit (lower is better), 9 when nothing was read
+  public static string Read(Bitmap src, int x, int y, int w, int h, out double fit) {
+    fit = 9; if (tpl.Count == 0) return "";
+    var ink = Ink(src, x, y, w, h);
+    int top = h, bot = -1; var cols = new bool[w];
+    for (int i = 0; i < w; i++) for (int j = 0; j < h; j++) if (ink[i, j]) { cols[i] = true; top = Math.Min(top, j); bot = Math.Max(bot, j); }
+    if (bot - top < 5) return "";
+    int a = -1; var runs = new System.Collections.Generic.List<int[]>();
+    for (int i = 0; i <= w; i++) { bool c = i < w && cols[i]; if (c && a < 0) a = i; if (!c && a >= 0) { runs.Add(new[] { a, i }); a = -1; } }
+    var sb = new System.Text.StringBuilder(); double total = 0; int digits = 0;
+    foreach (var r in runs) {
+      int n = r[1] - r[0];
+      var best = new double[n + 1]; var from = new int[n + 1]; var dig = new char[n + 1];
+      for (int i = 1; i <= n; i++) best[i] = double.MaxValue;
+      for (int i = 0; i < n; i++) { if (best[i] == double.MaxValue) continue;
+        foreach (var tp in tpl) for (int gw = Math.Max(1, tp.Item2 - 1); gw <= tp.Item2 + 1 && i + gw <= n; gw++) {
+          double c = best[i] + Cost(Sample(ink, r[0] + i, r[0] + i + gw, top, bot), tp.Item3) + 0.03;
+          if (c < best[i + gw]) { best[i + gw] = c; from[i + gw] = i; dig[i + gw] = tp.Item1; } } }
+      if (best[n] == double.MaxValue) continue;
+      var part = new System.Text.StringBuilder(); int d = 0; for (int i = n; i > 0; i = from[i]) { part.Insert(0, dig[i]); d++; }
+      sb.Append(part); total += best[n]; digits += d;
+    }
+    fit = digits > 0 ? total / digits : 9;
+    return sb.ToString();
+  }
+}
 '@
 
 $asTask = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1' })[0]
@@ -897,6 +1013,9 @@ if ($iconDir) {
 [Digits]::Load('1:0066666669999933339990000999000099900009990000999000099900009990000662;3:0488861158999301111540000493004899310115943000158100005956888941399940;7:7799995000047500047510004754004752400475242475200247520057520000000000;2:0009000299999009009920000099000079900009900009900009900009900006666666;5:0222222099777409900000992200099992004077920000099000029724229903344330;6:0000992009999009990000990200999999099900999900099990009909900990077770;4:0000990000999000499900099990099099009409909999999000099000009900000490;9:0033330069699039606999900099993039939939990666699000039603369600444400;8:0099990099009999000990990990099999049000999900099999009909999900000000;0:0088880279299229709998913999990799999292997979099499209913977920026220')
 if (-not $IconIndex) { $IconIndex = Join-Path $PSScriptRoot 'data\icon-index.bin' }
 if (Test-Path $IconIndex) { try { $null = [SofScreen]::LoadBuffIndex($IconIndex) } catch { } }
+foreach ($id in ($HotbarIds -split ',')) { if ($id -match '^\d+$') { [void][SofScreen]::HotbarIds.Add([uint32]$id) } }
+if (-not $FontFile) { $FontFile = 'C:\NetGame\ScionsOfFate\Client\MG BASIC2.TTF' }
+if (Test-Path -LiteralPath $FontFile) { try { $null = [Counts]::Make($FontFile, [float[]]@(12, 13)) } catch { } }
 
 function OcrLines([System.Drawing.Bitmap]$bmp) { @(OcrRich $bmp | ForEach-Object { $_.text }) }
 # lines with where they are in the picture (x, y, w, h)
@@ -1082,6 +1201,25 @@ function Read-Frame([System.Drawing.Bitmap]$bmp) {
     try { $lines = @(OcrRich $b) } finally { $b.Dispose() }
     $o.tooltip = [ordered]@{ box = $tt; lines = @($lines | ForEach-Object { $_.text })
       cols = @($lines | ForEach-Object { [SofScreen]::LineColor($bmp, $v[0] + 2 + [int]($_.x / $sc), $v[1] + 2 + [int]($_.y / $sc), [int]($_.w / $sc) + 1, [int]($_.h / $sc) + 1, $lum, 1) }) }
+  }
+  # the hotbar (rows 1–0 and F1–F10 at the bottom): item icons in it, with the count drawn in their corner
+  # (potions, ginseng…). Only items: skills have no count. "set:id@x,y" from the icon index, then the digits.
+  $t1 = $watch.ElapsedMilliseconds
+  $hb = [SofScreen]::HotbarItems($bmp)
+  $o.hotbar = @(foreach ($h in @($hb -split ';' | Where-Object { $_ })) {
+    $slot, $rest = $h -split '=', 2; $key, $at = $rest -split '@'; $xy = $at -split ','; $hx = [int]$xy[0]; $hy = [int]$xy[1]
+    # the count in the slot's bottom-right corner, by the game font's digit shapes (null when it doesn't read well)
+    $fit = 9.0; $txt = [Counts]::Read($bmp, $hx + 12, $hy + 16, 20, 13, [ref]$fit)
+    [ordered]@{ slot = $slot; icon = $key; x = $hx; y = $hy; count = $(if ($txt -match '^\d{1,4}$' -and $fit -le 0.34) { [int]$txt } else { $null }); raw = $txt; fit = [math]::Round($fit, 3) }
+  })
+  $o.hotbarMs = $watch.ElapsedMilliseconds - $t1
+  # a sharp (uncompressed) picture of the hotbar now and then while it holds counted items, for tuning the digit reader
+  if (-not $Image -and $o.hotbar.Count -and (-not $script:hotbarSharpAt -or ((Get-Date) - $script:hotbarSharpAt).TotalMinutes -ge 30)) {
+    try {
+      $dir = Join-Path $PSScriptRoot 'data\debug'; $null = New-Item -ItemType Directory -Force $dir
+      $hy0 = [Math]::Max(0, $bmp.Height - 100); $crop = $bmp.Clone((New-Object System.Drawing.Rectangle 0, $hy0, $bmp.Width, ($bmp.Height - $hy0)), $bmp.PixelFormat)
+      $crop.Save((Join-Path $dir ('hotbar-sharp-{0:yyyyMMdd-HHmmss}.png' -f (Get-Date))), [System.Drawing.Imaging.ImageFormat]::Png); $crop.Dispose(); $script:hotbarSharpAt = Get-Date
+    } catch { }
   }
   # effect icons on you, and the player dots on the minimap
   $t0 = $watch.ElapsedMilliseconds

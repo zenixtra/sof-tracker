@@ -151,6 +151,9 @@ function render() {
       + (sc.mp != null ? `<div class="gauge mp"><i style="width:${pct(sc.mp, sc.mpMax)}%"></i></div>` : '')
       + party.map((p) => `<div class="item ${p.hp < 30 ? 'low' : ''}"><span>${esc(p.name)}</span><span class="mono">${p.hp ? `${p.hp}%` : '✝'}</span></div><div class="gauge"><i style="width:${p.hp}%"></i></div>`).join('');
   }
+  // potions and ginseng counted on the hotbar (red below the alert limit)
+  const pots = (S.potions || []).filter((p) => !p.stale);
+  if (sc && sc.hp != null && pots.length) $('hp').insertAdjacentHTML('beforeend', pots.map((p) => `<div class="item ${S.settings?.potionLow && p.count < S.settings.potionLow ? 'low' : ''}"><span>${esc(p.slot || '')} ${esc(p.name)}</span><span class="mono">${p.count}${p.leftMs ? ` · ~${dur(p.leftMs)}` : ''}</span></div>`).join(''));
   // whispers of the last 30 minutes (never on stream)
   const wh = OBS ? [] : (S.alerts || []).filter((a) => a.kind === 'whisper' && tn - a.t < 30 * 60000).slice(-3).reverse();
   $('whSec').style.display = wh.length ? 'block' : 'none';

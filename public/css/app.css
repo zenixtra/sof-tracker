@@ -560,3 +560,10 @@
 .askout ul { margin: 6px 0 4px 18px; padding: 0; font-size: 13px; }
 .sndtbl td { padding: 3px 4px; } .sndtbl select { max-width: 150px; }
 .laydone[hidden] { display: none; }
+
+/* potions on the hotbar (Live card) */
+.potlist { display: grid; gap: 3px; margin-top: 4px; font-size: 13px; }
+.potrow { display: grid; grid-template-columns: 1fr auto; column-gap: 8px; }
+.potrow span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.potrow small { grid-column: 1 / -1; margin-top: -2px; }
+.potrow.low b { color: var(--crimson); }

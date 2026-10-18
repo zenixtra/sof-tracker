@@ -79,7 +79,9 @@ function render() {
   if (on) $('hp').innerHTML = `<div class="row"><span>HP</span><span class="mono ${pct(sc.hp, sc.hpMax) < 30 ? 'low' : ''}">${sc.hp} / ${sc.hpMax}</span></div><div class="gauge"><i style="width:${pct(sc.hp, sc.hpMax)}%"></i></div>`
     + (sc.mp != null ? `<div class="row"><span>MP</span><span class="mono">${sc.mp} / ${sc.mpMax}</span></div><div class="gauge mp"><i style="width:${pct(sc.mp, sc.mpMax)}%"></i></div>` : '')
     + (sc.exp != null ? `<div class="row"><span>EXP</span><span class="mono">${sc.exp.toFixed(2)}%${sc.expPerHour ? ` · ${sc.expPerHour.toFixed(1)}%/h` : ''}</span></div><div class="gauge exp"><i style="width:${sc.exp}%"></i></div>` : '')
-    + `<div class="muted" style="font-size:13px">${t('{n} kills', { n: sc.kills ?? 0 })} · ${t('{n} deaths', { n: sc.deaths ?? 0 })}</div>`;
+    + `<div class="muted" style="font-size:13px">${t('{n} kills', { n: sc.kills ?? 0 })} · ${t('{n} deaths', { n: sc.deaths ?? 0 })}</div>`
+    // potions and ginseng counted on the hotbar
+    + (S.potions || []).filter((p) => !p.stale).map((p) => `<div class="row" style="margin-top:4px"><span>💊 ${esc(p.slot || '')} ${esc(p.name)}</span><span class="mono ${S.settings?.potionLow && p.count < S.settings.potionLow ? 'low' : ''}">${p.count}${p.leftMs ? ` · ~${Math.round(p.leftMs / 60000)}m` : ''}</span></div>`).join('');
   const party = on ? sc.party || [] : [];
   $('partyCard').style.display = party.length ? 'block' : 'none';
   $('party').innerHTML = party.map((p) => `<div class="row"><span>${esc(p.name)}</span><span class="mono ${p.hp < 30 ? 'low' : ''}">${p.hp ? `${p.hp}%` : '✝'}</span></div><div class="gauge"><i style="width:${p.hp}%"></i></div>`).join('');

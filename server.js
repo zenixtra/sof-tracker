@@ -61,6 +61,7 @@ const { BreakWatch } = require('./lib/breaks');
 const ask = require('./lib/ask');
 const { GamePerf, parseTasklist } = require('./lib/gameperf');
 const { FastBars } = require('./lib/fastbars');
+const { PotionStock } = require('./lib/potionstock');
 const { reportPage } = require('./lib/reportpage');
 const gamecfg = require('./lib/gamecfg');
 const guard = require('./lib/guard');
@@ -132,6 +133,7 @@ const DEFAULT_SETTINGS = {
   shareLive: true,      // friends sync: share your live zone / position / in-game status (party view)
   screenReader: false,  // read HP / MP / EXP and loot announcements from the game window (screenreader.ps1)
   screenInterval: 3,    // seconds between full looks (0 = no pause: a full look takes about a second by itself)
+  potionLow: 50,        // an alert when a potion or ginseng on the hotbar drops below this many (0 = off)
   fastBars: 0,          // HP / MP / EXP bars read this many times a second between full looks (0 = off; 2, 5, 10, 20)
   lowHpAlert: 0,        // alert below this HP % (0 = off; needs the screen reader)
   // what the screen reader tells you about while you're away
@@ -1456,6 +1458,7 @@ function snapshot() {
     screen: settings.screenReader ? { ...(screen || {}), status: screenReader.status, error: screenReader.error, pace, sessionKills: screenSession.kills, sessionExp: screenSession.exp, lastDrop: lastMineDrop ? { t: lastMineDrop.t, who: lastMineDrop.who, item: lastMineDrop.item } : null } : null,
     expGoal: expGoalView(),
     countdowns: (() => { try { return countdownsView(now); } catch { return []; } })(),
+    potions: (() => { try { return potionStock.view(state.session.character, now); } catch { return []; } })(), // (the hotbar's potions and ginseng)
     patch: (() => { const r = patches.history[0]; return r ? { id: r.id, at: r.at, versionTo: r.versionTo } : null; })(),
     buffs: Object.values(state.buffs).sort((a, b) => a.expiresAt - b.expiresAt),
     buffHistory: state.buffHistory,
@@ -3024,6 +3027,7 @@ const screenReader = new screenreader.ScreenReader({
   onFrame(f) {
     const hp = screenreader.parsePair(f.hp), mp = screenreader.parsePair(f.mp);
     fastBars.full({ hp, mp, bars: f.bars }); // (teaches the fast looks the bars' scale)
+    noteHotbar(state.session.character || process.env.SOF_TEST_CHARACTER, f); // potions and ginseng on the hotbar (SOF_TEST_CHARACTER: tests)
     const sk = state.session.file && state.session.startedAt ? sessionKey(state.session) : null;
     if (screenSession.key !== sk) screenSession = new watch.ScreenSession(sk, sk ? sessions[sk]?.screen : null);
     if (f.exp > 0) { expSamples.push({ t: f.t, exp: f.exp }); while (expSamples.length > 2000 || (expSamples.length && f.t - expSamples[0].t > 3600000)) expSamples.shift(); }
@@ -3225,7 +3229,7 @@ function syncScreenReader() {
       // a self-check of the reader once it had a few minutes to read (HP, EXP, chat)
       clearTimeout(syncScreenReader.check); syncScreenReader.check = setTimeout(() => doSelfCheck('screen reader started'), 5 * 60000);
     }
-    screenReader.start(state.game.pid, settings.screenInterval, ['-Fast', String(settings.fastBars || 0), '-RingDir', RING_DIR, '-IntervalFile', PACE_FILE, '-IconIndex', ICON_INDEX]);
+    screenReader.start(state.game.pid, settings.screenInterval, ['-Fast', String(settings.fastBars || 0), '-RingDir', RING_DIR, '-IntervalFile', PACE_FILE, '-IconIndex', ICON_INDEX, ...hotbarArgs()]);
     setPace({ interval: pace.interval ?? settings.screenInterval, why: pace.why || 'start' }); // (a changed fast-bars rate reaches a running reader)
   }
   else { screenReader.stop(); screen = null; }
@@ -3236,10 +3240,29 @@ function syncScreenReader() {
     if (altReaders.has(pid)) continue;
     const a = newAltReader(pid);
     altReaders.set(pid, a);
-    a.reader.start(pid, Math.max(settings.screenInterval, 3), ['-RingDir', a.ring, '-IconIndex', ICON_INDEX]);
+    a.reader.start(pid, Math.max(settings.screenInterval, 3), ['-RingDir', a.ring, '-IconIndex', ICON_INDEX, ...hotbarArgs()]);
   }
 }
 
+// ---- potions and ginseng on the hotbar (lib/potionstock.js): the counts the reader sees on the item icons, per
+// character, how fast they go, how long a batch lasts, and an alert below settings.potionLow
+const potionStock = new PotionStock({ read: () => store.readJson('potion-stock.json', null), save: (d) => store.writeJson('potion-stock.json', d) });
+let hotbarIdsCache = { db: null, v: '' };
+// the item ids the reader looks for on the hotbar: potions, ginseng, salves, pills, elixirs (a short list keeps it fast)
+function hotbarIds() {
+  if (hotbarIdsCache.db !== gameDb) hotbarIdsCache = { db: gameDb, v: gameDb.items.filter((i) => guideplan.POTIONS[i.name] || /salve|ginseng|pill|potion|elixir|tonic|remedy|hong acid/i.test(i.name)).slice(0, 400).map((i) => i.id).join(',') };
+  return hotbarIdsCache.v;
+}
+const hotbarArgs = () => ['-HotbarIds', hotbarIds(), '-FontFile', path.join(CLIENT_DIR, 'MG BASIC2.TTF')];
+function noteHotbar(char, f) {
+  if (!char || !Array.isArray(f.hotbar)) return;
+  const items = new Map(gameDb.items.map((i) => [i.id, i]));
+  const slots = f.hotbar.map((h) => { const id = +String(h.icon).split(':')[1]; return { id, name: items.get(id)?.name || `#${id}`, slot: h.slot, count: h.count }; });
+  for (const a of potionStock.update(char, f.t, slots, settings.potionLow)) {
+    const v = potionStock.view(char, f.t).find((x) => x.id === a.id);
+    addAlert('potion', `Only ${a.count} ${a.name} left (${char})`, [a.slot && `on ${a.slot}`, v?.leftMs ? `about ${hm(v.leftMs)} at your pace` : null, `the alert is set below ${a.limit}`].filter(Boolean).join(' · '));
+  }
+}
 // ---- a reader for a second game window (lighter: the chat is the same server chat the main window reads)
 const altReaders = new Map(); // pid -> { pid, reader, ring, screen, away, lastHp, lowAt, exp }
 function newAltReader(pid) {
@@ -3253,6 +3276,7 @@ function altFrame(a, f) {
   const o = others.get(a.pid);
   if (!o) return;
   const s = o.session, who = s.character || 'Your other character', zone = s.position?.zone ?? null;
+  noteHotbar(s.character, f); // (its potions and ginseng)
   readerOk('alt', f.t);
   const hp = screenreader.parsePair(f.hp), mp = screenreader.parsePair(f.mp);
   // the second window's gear tooltips and inventory, for its own character
@@ -3575,6 +3599,7 @@ function applySettings(b) {
     screenReader: b.screenReader === undefined ? settings.screenReader : !!b.screenReader,
     screenInterval: num(b.screenInterval, 0, 30, settings.screenInterval), // (0: the next full look right away, about one a second)
     fastBars: [0, 2, 5, 10, 20].includes(+b.fastBars) ? +b.fastBars : settings.fastBars,
+    potionLow: num(b.potionLow, 0, 9999, settings.potionLow),
     lowHpAlert: num(b.lowHpAlert, 0, 90, settings.lowHpAlert),
     whisperAlert: b.whisperAlert === undefined ? settings.whisperAlert : !!b.whisperAlert,
     mentionAlert: b.mentionAlert === undefined ? settings.mentionAlert : !!b.mentionAlert,
@@ -4156,6 +4181,12 @@ const server = http.createServer(async (req, res) => {
       }
       return json(res, r);
     }
+    // potions and ginseng counted on the hotbar, per character (lib/potionstock.js)
+    if (route === '/api/potion-stock') {
+      const chars = Object.values(potionStock.d.chars).map((c) => c.name);
+      const who = url.searchParams.get('char') || state.session.character || myCharacter() || chars[0] || null;
+      return json(res, { character: who, chars, limit: settings.potionLow, items: who ? potionStock.view(who) : [] });
+    }
     // a character's skill bar and auto-combat setup from the game files, with advice
     if (route === '/api/skill-setup') {
       const chars = [...new Set([...knownChars(), ...[...gameFiles().chars.values()].filter((c) => c.bar?.slots.length || c.auto?.slots.length).map((c) => c.name)])];
@@ -4688,6 +4719,7 @@ setInterval(() => {
   if (chatDirty) { store.writeJson('chat.json', chatLog.entries); chatDirty = false; }
   if (mazeRuns.cur) mazeRuns.save();
   dailyStats.flush();
+  potionStock.flush();
   saveTimeline();
   checklist.tick(Date.now(), inGameChars());
   checkGoalNudge();
@@ -4711,6 +4743,7 @@ function shutdown() {
   if (chatDirty) store.writeJson('chat.json', chatLog.entries);
   mazeRuns.save();
   dailyStats.flush();
+  potionStock.flush();
   saveTimeline();
   screenReader.stop();
   for (const a of altReaders.values()) a.reader.stop();

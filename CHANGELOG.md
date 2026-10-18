@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.48.0
+
+- **Potions and ginseng on the hotbar:** the screen reader recognises potion and ginseng icons in the 1–0 and F1–F10 rows and reads the count in their corner, using digit shapes drawn from the game's own font (MG BASIC 2).
+  - A count is believed only after two reads agree.
+  - Per character, it shows how many are left, how many you use per hour of play, about how long they will last, and how long earlier batches lasted (buying or picking up more starts a new batch).
+  - **Alert** when one drops below a limit you choose (default 50; Stats → Potions & ginseng).
+  - Shown on the Live tab, the overlay and the phone page; your second game window's character is counted too.
+- The reader saves an uncompressed picture of the hotbar every 30 minutes (`data\debug\hotbar-sharp-*.png`), so the digit reading can be tuned from real play.
+
 ## 1.47.0
 
 - **Real-time HP, MP and EXP bars:** a new "HP / MP / EXP bars" setting (Settings → Screen reader) reads the bars 2, 5, 10 or 20 times a second between full reads.
