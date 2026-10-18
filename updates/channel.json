@@ -1,10 +1,20 @@
 {
-  "sequence": 3,
-  "latest": "1.47.0",
+  "sequence": 4,
+  "latest": "1.48.0",
   "minimum": "1.45.0",
   "offlineGraceHours": 168,
   "message": "",
   "releases": [
+    {
+      "version": "1.48.0",
+      "url": "https://github.com/zenixtra/sof-tracker/releases/download/v1.48.0/SoF-Tracker-Setup-1.48.0.exe",
+      "sha256": "bda2d58a3167ebd4f6a1a705f0413aaec71356bc850e310b38bbb3a2217dd06f",
+      "size": 778240,
+      "mandatory": false,
+      "date": "2026-10-18",
+      "notes": "SoF Tracker 1.48.0\n\n- Potions and ginseng on the hotbar: the screen reader recognises their icons on the 1-0 and F1-F10 rows and reads the count in the corner. Per character: how many are left, use per hour of play, about how long they last, and how long earlier batches lasted.\n- An alert when one drops below a limit you choose (default 50, Stats > Potions & ginseng). Also shown on the Live tab, the overlay and the phone page.\n\nSHA-256 of SoF-Tracker-Setup-1.48.0.exe:\nbda2d58a3167ebd4f6a1a705f0413aaec71356bc850e310b38bbb3a2217dd06f",
+      "instructions": ""
+    },
     {
       "version": "1.47.0",
       "url": "https://github.com/zenixtra/sof-tracker/releases/download/v1.47.0/SoF-Tracker-Setup-1.47.0.exe",
@@ -37,5 +47,5 @@
     }
   ],
   "revoked": [],
-  "issuedAt": "2026-10-18T20:34:56.193Z"
+  "issuedAt": "2026-10-18T21:14:08.839Z"
 }
