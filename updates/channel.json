@@ -1,0 +1,21 @@
+{
+  "sequence": 1,
+  "latest": "1.45.0",
+  "minimum": "1.45.0",
+  "offlineGraceHours": 168,
+  "message": "",
+  "releases": [
+    {
+      "version": "1.45.0",
+      "url": "https://github.com/zenixtra/sof-tracker/releases/download/v1.45.0/SoF-Tracker-Setup-1.45.0.exe",
+      "sha256": "37be22512a87eb06ec56c75d90d34d6cbab97b1e6f6bbd98b39629de65b4ed5c",
+      "size": 751616,
+      "mandatory": false,
+      "date": "2026-10-18",
+      "notes": "First public release",
+      "instructions": ""
+    }
+  ],
+  "revoked": [],
+  "issuedAt": "2026-10-18T00:14:39.769Z"
+}
