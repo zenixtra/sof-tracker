@@ -1,10 +1,20 @@
 {
-  "sequence": 1,
-  "latest": "1.45.0",
+  "sequence": 2,
+  "latest": "1.46.0",
   "minimum": "1.45.0",
   "offlineGraceHours": 168,
   "message": "",
   "releases": [
+    {
+      "version": "1.46.0",
+      "url": "https://github.com/zenixtra/sof-tracker/releases/download/v1.46.0/SoF-Tracker-Setup-1.46.0.exe",
+      "sha256": "8af0707144f8d58d18a8bd8938d17a544180c84cf8accbed9f690ab7c9da942c",
+      "size": 763392,
+      "mandatory": false,
+      "date": "2026-10-18",
+      "notes": "SoF Tracker 1.46.0\n\n- Potions per character, read from each character's own setup in the game folder.\n- Skill setup panel (Stats tab): skill bar, auto-combat setup and cooldowns, plus stronger skills you can learn now.\n- Your own characters are recognised: alts are no longer counted as players met or as danger.\n- Game settings check: windowed mode and chat background in the Setup check, and graphics advice when the game freezes.\n- Game setting changes are shown on the session timeline.\n\nSHA-256 of SoF-Tracker-Setup-1.46.0.exe:\n8af0707144f8d58d18a8bd8938d17a544180c84cf8accbed9f690ab7c9da942c",
+      "instructions": ""
+    },
     {
       "version": "1.45.0",
       "url": "https://github.com/zenixtra/sof-tracker/releases/download/v1.45.0/SoF-Tracker-Setup-1.45.0.exe",
@@ -17,5 +27,5 @@
     }
   ],
   "revoked": [],
-  "issuedAt": "2026-10-18T00:14:39.769Z"
+  "issuedAt": "2026-10-18T00:49:19.149Z"
 }
