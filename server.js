@@ -62,6 +62,7 @@ const ask = require('./lib/ask');
 const { GamePerf, parseTasklist } = require('./lib/gameperf');
 const { FastBars } = require('./lib/fastbars');
 const { PotionStock } = require('./lib/potionstock');
+const { PhoneApp } = require('./lib/phoneapp');
 const { reportPage } = require('./lib/reportpage');
 const gamecfg = require('./lib/gamecfg');
 const guard = require('./lib/guard');
@@ -77,7 +78,9 @@ const CLIENT_DIR = process.env.SOF_CLIENT_DIR || CONFIG.clientDir || 'C:\\NetGam
 const GAME_DIR = path.dirname(CLIENT_DIR);
 const LAUNCHER = process.env.SOF_LAUNCHER || path.join(GAME_DIR, 'launcher.exe');
 const PORT = Number(process.env.PORT) || 7777;
-const HOST = process.env.SOF_HOST || '127.0.0.1'; // start-phone.bat sets 0.0.0.0 for LAN access
+// 0.0.0.0: reachable from your home network (the phone app's live view, the phone page), with the access key in
+// data/lan-key.txt. Set by Settings → Phone app (lanAccess, used at start-up), or SOF_HOST (start-phone.bat).
+const HOST = process.env.SOF_HOST || (store.readJson('settings.json', {}).lanAccess ? '0.0.0.0' : '127.0.0.1');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 // The official server announces its times in US Pacific time (PDT/PST in maintenance notices).
 const SERVER_TZ = process.env.SOF_SERVER_TZ || 'America/Los_Angeles';
@@ -133,6 +136,7 @@ const DEFAULT_SETTINGS = {
   shareLive: true,      // friends sync: share your live zone / position / in-game status (party view)
   screenReader: false,  // read HP / MP / EXP and loot announcements from the game window (screenreader.ps1)
   screenInterval: 3,    // seconds between full looks (0 = no pause: a full look takes about a second by itself)
+  lanAccess: false,     // the phone app / phone page may reach the tracker on your home network (restart needed)
   potionLow: 50,        // an alert when a potion or ginseng on the hotbar drops below this many (0 = off)
   fastBars: 0,          // HP / MP / EXP bars read this many times a second between full looks (0 = off; 2, 5, 10, 20)
   lowHpAlert: 0,        // alert below this HP % (0 = off; needs the screen reader)
@@ -286,6 +290,7 @@ function addAlert(kind, title, body = '', extra = null) {
   if (updateBlocked && kind !== 'update') return; // blocked until updated: nothing goes out
   // phone / Discord get the alert in the interface language
   notifier.send({ ...a, title: i18n.tAlert(uiLang(), title), body: i18n.tAlert(uiLang(), body) });
+  if (!process.env.SOF_OFFLINE) phoneApp.send({ ...a, title: i18n.tAlert(uiLang(), title), body: i18n.tAlert(uiLang(), body) });
 }
 // e.g. from 0 to 8: 00:00 – 07:59; from 23 to 7 runs over midnight
 function quietNow(h = new Date().getHours()) {
@@ -299,6 +304,8 @@ const uiLang = () => settings.lang || 'en';
 const notifier = new Notifier({
   isAway: () => !state.game.running || (state.session.lastActiveAt && Date.now() - state.session.lastActiveAt >= settings.afkMinutes * 60000),
 });
+// the Android app (lib/phoneapp.js): every alert also goes to its private relay topic once a phone is paired
+const phoneApp = new PhoneApp({ read: () => store.readJson('phone-app.json', null), save: (d) => store.writeJson('phone-app.json', d), isAway: () => notifier.isAway() });
 const bosses = new Bosses({ onEvent: addAlert });
 // from the Korean guide book: the field-boss schedule until SoF's own is learned, pass countdowns, buff run times
 const guideBosses = new guideplan.GuideBosses({ guide: KR_GUIDE, onEvent: addAlert });
@@ -3600,6 +3607,7 @@ function applySettings(b) {
     screenInterval: num(b.screenInterval, 0, 30, settings.screenInterval), // (0: the next full look right away, about one a second)
     fastBars: [0, 2, 5, 10, 20].includes(+b.fastBars) ? +b.fastBars : settings.fastBars,
     potionLow: num(b.potionLow, 0, 9999, settings.potionLow),
+    lanAccess: b.lanAccess === undefined ? settings.lanAccess : !!b.lanAccess,
     lowHpAlert: num(b.lowHpAlert, 0, 90, settings.lowHpAlert),
     whisperAlert: b.whisperAlert === undefined ? settings.whisperAlert : !!b.whisperAlert,
     mentionAlert: b.mentionAlert === undefined ? settings.mentionAlert : !!b.mentionAlert,
@@ -3678,7 +3686,7 @@ function applySettings(b) {
   return settings;
 }
 
-const STATIC = { '/': 'index.html', '/index.html': 'index.html', '/overlay': 'overlay.html', '/overlay.html': 'overlay.html', '/stream': 'overlay.html', '/phone': 'phone.html', '/widget': 'widget.html' };
+const STATIC = { '/': 'index.html', '/index.html': 'index.html', '/overlay': 'overlay.html', '/overlay.html': 'overlay.html', '/stream': 'overlay.html', '/phone': 'phone.html', '/widget': 'widget.html', '/pair': 'pair.html' };
 const STATIC_JS = { '/update-gate.js': 'update-gate.js', '/sounds.js': 'sounds.js', '/i18n.js': 'i18n.js', '/i18n-dict.js': 'i18n-dict.js', '/help.js': 'help.js', '/world.js': 'world.js', '/krguide.js': 'krguide.js' };
 
 // phone mode (SOF_HOST=0.0.0.0): the key other devices need, made once and kept in data\lan-key.txt
@@ -4180,6 +4188,26 @@ const server = http.createServer(async (req, res) => {
         r.warnings = r.rows.filter((x) => x.status === 'warn').length;
       }
       return json(res, r);
+    }
+    // ---- the Android app: pairing (QR code), what it gets, a test; this PC only (the code holds the access key)
+    if (route === '/api/phone-app') {
+      if (!guard.isLoopbackAddr(req.socket.remoteAddress)) { res.writeHead(403); return res.end('PC only'); }
+      if (req.method === 'POST') {
+        const b = JSON.parse(await readBody(req));
+        if (b.sendWhen) phoneApp.setSendWhen(b.sendWhen);
+        if (b.action === 'unpair') phoneApp.reset();
+        if (b.action === 'test') phoneApp.test();
+        if (b.lanAccess !== undefined && !!b.lanAccess !== !!settings.lanAccess) {
+          applySettings({ lanAccess: !!b.lanAccess });
+          // the tracker listens on the network only after a restart: the tray starts it again by itself
+          if (readerTools.trayOn()) { json(res, { restarting: true }); setTimeout(shutdown, 400); return; }
+          return json(res, { restartNeeded: true });
+        }
+      }
+      const pc = os.hostname(), lan = LAN_MODE ? lanUrls() : [];
+      const pr = phoneApp.pairing({ name: pc, lan, key: LAN_MODE ? lanKey : null, repo: RELEASE.repo });
+      const qr = lan.length ? `${lan[0]}/pair?key=${lanKey}&repo=${encodeURIComponent(RELEASE.repo || '')}#${pr.code}` : pr.link;
+      return json(res, { ...phoneApp.view(), lanMode: LAN_MODE, lanAccess: !!settings.lanAccess, lan, ...pr, qr, releasesPage: RELEASE.releasesPage || null });
     }
     // potions and ginseng counted on the hotbar, per character (lib/potionstock.js)
     if (route === '/api/potion-stock') {

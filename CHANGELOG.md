@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.50.0
+
+- **SoF Tracker for Android:** a phone app, paired with your PC by a QR code (Settings → Phone app).
+  - **Notifications anywhere:** the tracker's alerts arrive as phone notifications, also away from home, through the free ntfy.sh relay on a private, random topic. Danger, disconnects and whispers use a louder channel.
+  - **Live view on your Wi-Fi:** the app shows the live phone page when the phone is on the same network as the PC.
+  - **Only while I'm away:** an option to send alerts only when the game is closed or you're AFK; urgent ones always go.
+  - **Unpair all phones** makes a new topic, so old phones stop getting alerts.
+  - The app keeps listening in the background, starts again after the phone restarts, and offers **Update app** when a newer version is on the Releases page.
+- **Let my phone see the tracker on this Wi-Fi:** a dashboard switch for the home-network access, instead of an environment variable. It restarts the tracker.
+
 ## 1.49.0
 
 - **Potion and ginseng counts read correctly:**

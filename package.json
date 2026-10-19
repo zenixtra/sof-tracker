@@ -1,6 +1,6 @@
 {
   "name": "sof-tracker",
-  "version": "1.49.0",
+  "version": "1.50.0",
   "description": "Live stats tracker for Scions of Fate: reads the game's log files and screen, never the game itself",
   "license": "MIT",
   "private": true,
@@ -14,7 +14,10 @@
     "release:build": "node scripts/release.js build",
     "release:publish": "node scripts/release.js publish",
     "release:verify": "node scripts/release.js verify",
-    "release:status": "node scripts/release.js status"
+    "release:status": "node scripts/release.js status",
+    "android:keystore": "node scripts/android.js keystore",
+    "android:build": "node scripts/android.js build",
+    "android:debug": "node scripts/android.js debug"
   },
   "engines": {
     "node": ">=22"

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pair your phone</title>
+<style>
+  :root { --bg: #0e0f13; --panel: #16181f; --line: #2a2e3a; --text: #e6e3da; --muted: #8d8a80; --gold: #d6a84a; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 520px; margin: 0 auto; padding: 24px 16px; }
+  h1 { color: var(--gold); font-size: 22px; margin: 0 0 8px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 14px 0; }
+  a.btn { display: block; text-align: center; background: var(--gold); color: #1a1408; font-weight: 700; text-decoration: none; padding: 14px; border-radius: 10px; margin: 10px 0; }
+  a.btn.alt { background: transparent; color: var(--text); border: 1px solid var(--line); }
+  .muted { color: var(--muted); font-size: 14px; }
+  code { word-break: break-all; font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Pair your phone with SoF Tracker</h1>
+  <p class="muted">This page came from the tracker on your PC. It hands the pairing code to the SoF Tracker app.</p>
+  <div class="card">
+    <b>1. Have the app?</b>
+    <a class="btn" id="open" href="#">Open SoF Tracker and pair</a>
+    <p class="muted">Nothing happens? Install the app first (step 2), then come back to this page.</p>
+  </div>
+  <div class="card">
+    <b>2. Get the app (Android)</b>
+    <a class="btn alt" id="get" href="#" target="_blank" rel="noopener">Download SoF Tracker for Android</a>
+    <p class="muted">Download the <b>.apk</b> file, open it and allow installing from your browser when Android asks. Then tap step 1.</p>
+  </div>
+  <p class="muted">Or paste this code into the app:</p>
+  <code id="code"></code>
+</main>
+<script>
+// the pairing code is in the address after # (it never goes back to the PC); ?repo= says where the app is released
+const code = location.hash.slice(1), repo = new URLSearchParams(location.search).get('repo') || '';
+document.getElementById('code').textContent = code || '(no code: scan the QR code on the PC again)';
+document.getElementById('open').href = `sofapp://pair?d=${code}`;
+document.getElementById('get').href = /^[\w.-]+\/[\w.-]+$/.test(repo) ? `https://github.com/${repo}/releases/latest` : 'https://github.com/';
+if (code) setTimeout(() => { location.href = `sofapp://pair?d=${code}`; }, 400); // try straight away when the app is there
+</script>
+</body>
+</html>

@@ -990,6 +990,21 @@
       </div>
     </section>
 
+    <section class="panel c6" id="phoneAppPanel">
+      <h2>Phone app <small id="paState">SoF Tracker for Android</small></h2>
+      <p class="muted" style="font-size:12px;margin-top:0">The tracker's alerts as notifications on your phone, also away from home, and the live phone page on your home Wi-Fi. Install the app from the <a id="paGet" href="#" target="_blank" rel="noopener">Releases page</a> (the .apk file), then scan this code with the phone's camera.</p>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">
+        <div id="paQr" style="background:#fff;padding:8px;border-radius:8px;line-height:0;min-width:120px;min-height:120px"></div>
+        <div style="flex:1;min-width:200px">
+          <label class="wchk"><input type="checkbox" id="paLan"> Let my phone see the tracker on this Wi-Fi <small class="muted">(live view; restarts the tracker; Windows may ask to allow Node.js on private networks: allow it)</small></label>
+          <label class="muted" style="font-size:12px;display:block;margin-top:6px">send alerts <select id="paWhen"><option value="always">always</option><option value="away">only while I'm away (game closed or AFK), urgent ones always</option></select></label>
+          <div class="tools" style="margin-top:8px"><button class="small" id="paTest">Send a test</button><button class="small" id="paCopy">Copy pairing code</button><button class="small danger" id="paReset">Unpair all phones</button></div>
+          <div class="muted" id="paInfo" style="font-size:12px"></div>
+        </div>
+      </div>
+      <p class="muted" style="font-size:12px">Alerts reach the phone through the free ntfy.sh relay on a private, random topic: only phones with this code receive them, and ntfy.sh passes the alert text along. "Unpair all phones" makes a new topic, after which old phones get nothing more.</p>
+    </section>
+
     <section class="panel c6">
       <h2>Friends sync <small id="frState"></small></h2>
       <p class="muted" style="font-size:12px;margin-top:0">Share your watchlist, danger flags, player notes and map markers with friends through a folder you all have, such as a shared OneDrive, Dropbox or Google Drive folder. Nothing goes through any other server.</p>

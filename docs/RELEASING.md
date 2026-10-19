@@ -30,6 +30,7 @@ npm version patch --no-git-tag-version   # or: minor, major, or an exact number 
 | 6 | Test the setup locally | run `dist\SoF-Tracker-Setup-1.46.0.exe` over your installed copy | the dashboard opens, your data is still there |
 | 7 | Commit and push the code | `git add -A; git commit -m "SoF Tracker 1.46.0"; git push` | CI turns green on GitHub (Actions tab) |
 | 8 | Upload the setup | `gh release create v1.46.0 dist\SoF-Tracker-Setup-1.46.0.exe --title "SoF Tracker 1.46.0" --notes-file notes.txt` | the asset is on the release page |
+| 8b | Build and upload the Android app | `npm run android:build`, then `gh release upload v1.46.0 dist\SoF-Tracker-Android-1.46.0.apk` | the .apk is on the same release page |
 | 9 | Sign the update file | `node scripts/release.js publish --notes-file notes.txt` (add `--minimum 1.46.0` for a required update) | `✔ the uploaded setup matches the build`, `✔ updates\update.json signed` |
 | 10 | Make it live | `git add updates; git commit -m "Release channel: 1.46.0"; git push` | |
 | 11 | Check it | `node scripts/release.js verify` (wait up to 5 minutes for GitHub's cache) | two ✔ lines |
@@ -37,6 +38,14 @@ npm version patch --no-git-tag-version   # or: minor, major, or an exact number 
 | 13 | Announce it | | |
 
 `notes.txt` is a plain text file with the release notes. Users see the first line in the update banner and the whole text on the update screen. Put the SHA-256 from step 5 in the GitHub release notes too, so people who download by hand can check it.
+
+### The Android app
+
+The app (`android/`) is built with Android Studio's Java and SDK; Gradle downloads itself the first time.
+
+- **Once:** `npm run android:keystore` makes the app's signing key in `%USERPROFILE%\.sof-tracker-release\` (`android-release.jks` and `android-keystore.properties`). **Back both files up** with your update key. Every app update must be signed with the same key: without it, phones refuse to install the update and users have to uninstall and pair again.
+- **Each release:** `npm run android:build` makes `dist\SoF-Tracker-Android-<version>.apk` (its version is `package.json`'s) and prints its SHA-256. Upload it to the same GitHub release as the PC setup. The app looks for a `.apk` on the newest release to offer **Update app**.
+- `npm run android:debug` makes a test build with Android's debug key.
 
 ### Optional or required?
 
@@ -56,6 +65,7 @@ Require an update only when you must, for example when older versions show wrong
 - [ ] A game update since the last release hasn't broken the readers: **Settings → Self-check** and **Reader check** in the dashboard.
 - [ ] `CHANGELOG.md` and the release notes are written.
 - [ ] The version in `package.json` is new.
+- [ ] The Android app is built and uploaded to the same release.
 - [ ] The setup is uploaded **before** `publish`, and `publish` reports `✔ the uploaded setup matches the build`.
 - [ ] `updates/` is committed and pushed, and `verify` shows the new number.
 - [ ] An older install updated itself successfully.

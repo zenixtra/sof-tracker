@@ -9,7 +9,7 @@ const { execFileSync } = require('child_process');
 const version = require('../lib/version');
 
 const ROOT = path.join(__dirname, '..');
-const SKIP = new Set(['data', 'dist', 'backups', 'node_modules', '.git']);
+const SKIP = new Set(['data', 'dist', 'backups', 'node_modules', '.git', 'build', '.gradle', 'samples']); // (build, .gradle: Android build output)
 const files = (function walk(d) { return fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? (SKIP.has(e.name) ? [] : walk(path.join(d, e.name))) : [path.join(d, e.name)])); })(ROOT);
 const rel = (f) => path.relative(ROOT, f);
 let problems = 0;

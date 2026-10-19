@@ -9,7 +9,7 @@ A live stats tracker for **Scions of Fate**. It runs on your own PC and shows, i
 - quests, gear, gold and the market;
 - weekly and monthly reports.
 
-There's also an always-on-top overlay, a phone view, OBS widgets, and alerts by phone or Discord.
+There's also an always-on-top overlay, an Android app, a phone view, OBS widgets, and alerts by phone or Discord.
 
 It reads the game's own log and data files and looks at the game window the way you do (Windows' built-in text recognition). It never reads or changes the game's memory, never injects anything into the game and never sends input to it.
 
@@ -36,6 +36,23 @@ Everything is installed for your Windows user only (`%LOCALAPPDATA%\SoF Tracker`
 - **Node.js 22 or newer.** The setup installs it if needed.
 - **About 100 MB of disk space**, plus your data.
 - **Internet access**, for the rankings, news and update checks. The game needs it anyway.
+
+## Android app
+
+The **SoF Tracker app for Android** (Android 8 or newer) gets the tracker's alerts as notifications on your phone, also when you're away from home, and shows the live phone page when your phone is on the same Wi-Fi as your PC.
+
+1. On your phone, download **`SoF-Tracker-Android-<version>.apk`** from the [Releases page](../../releases/latest) and open it.
+   - Android asks to allow installing apps from your browser or file manager: allow it for that app (the app isn't from the Play Store).
+2. On the PC, open the dashboard: **Settings → Phone app**.
+   - For the live view, tick **Let my phone see the tracker on this Wi-Fi**. The tracker restarts. If Windows asks whether Node.js may use **private networks**, allow it.
+3. Scan the QR code with the phone's camera and tap **Open SoF Tracker and pair**.
+   - Or copy the pairing code on the PC (**Copy pairing code**), send it to yourself and paste it into the app.
+4. In the app, allow notifications. Allow it to **run in the background** too (the app asks; it's in ⋮ → Battery), or Android may stop it.
+5. Click **Send a test** on the PC: the phone shows a notification within a few seconds.
+
+**Send alerts: only while I'm away** sends alerts only when the game is closed or you're AFK. Urgent ones (danger, disconnect, whispers, party, updates) always go. **Unpair all phones** makes a new code: old phones stop getting alerts.
+
+The app checks the Releases page once a day and shows **Update app** when there's a newer version.
 
 ## Updates
 

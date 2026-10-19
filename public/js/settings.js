@@ -103,6 +103,7 @@ async function loadSettings() {
   loadSetupCheck();
   loadScreenSettings();
   loadBot();
+  loadPhoneApp();
   const st = await getJSON('/api/settings');
   for (const f of SET_FIELDS) if (document.activeElement !== setForm.elements[f]) setForm.elements[f].value = String(st[f]);
   for (const el of document.querySelectorAll('[data-set]')) if (document.activeElement !== el) el.value = st[el.dataset.set] ?? '';
@@ -181,6 +182,34 @@ async function loadNotify() {
 }
 for (const [id, key] of [['qtFrom', 'quietFrom'], ['qtTo', 'quietTo']]) $(id).addEventListener('change', () => saveSettings({ [key]: +$(id).value }));
 var KIND_NAMES = { update: 'Tracker updates', potion: 'Potions running low', danger: 'Danger', watch: 'Watched players', disconnect: 'Disconnects', maintenance: 'Maintenance', timer: 'Boss & event timers', boss: 'Boss predictions', event: 'Events', goal: 'Play-time goals', recap: 'Session recaps', report: 'Weekly reports', milestone: 'Milestones', buff: 'Buff reminders', marker: 'Markers', patch: 'Game updates', checklist: 'Checklist', whisper: 'Whispers & chat', stuck: 'EXP stopped', party: 'Party HP', price: 'Price watches', chat: 'Chat words', digest: 'Daily digest' };
+// ---- the Android app: the pairing QR code (a small QR library from cdnjs, loaded when needed), Wi-Fi access, a test
+let paData = null, qrLib = null;
+const loadQrLib = () => qrLib || (qrLib = new Promise((ok, fail) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js'; s.onload = () => ok(window.qrcode); s.onerror = fail; document.head.appendChild(s); }));
+async function loadPhoneApp() {
+  const r = await getJSON('/api/phone-app').catch(() => null);
+  if (!r) return;
+  paData = r;
+  $('paLan').checked = !!r.lanAccess;
+  $('paWhen').value = r.sendWhen;
+  $('paGet').href = r.releasesPage ? `${r.releasesPage}/latest` : 'https://github.com/';
+  $('paState').textContent = r.sent ? t('{n} alerts sent to phones', { n: r.sent }) : t('SoF Tracker for Android');
+  $('paInfo').innerHTML = [r.lanMode ? `${esc(t('Live view on this Wi-Fi at'))} <span class="mono">${esc(r.lan.join(', '))}</span>` : esc(t('Live view off: only notifications (tick the box above to add it).')),
+    r.lastError ? `<span style="color:var(--crimson)">${esc(t('Last send failed: {e}', { e: r.lastError }))}</span>` : ''].filter(Boolean).join('<br>');
+  try {
+    const q = (await loadQrLib())(0, 'M'); q.addData(r.qr); q.make();
+    $('paQr').innerHTML = q.createSvgTag({ cellSize: 4, margin: 2, scalable: false });
+  } catch { $('paQr').innerHTML = `<span style="color:#333;font-size:12px;line-height:1.3">${esc(t('The QR code needs the internet once. Use "Copy pairing code" instead.'))}</span>`; }
+}
+$('paLan').addEventListener('change', async () => {
+  if (!confirm(t($('paLan').checked ? 'Let phones on this Wi-Fi see the tracker (with the access key)? The tracker restarts.' : 'Keep the tracker to this PC only? The tracker restarts.'))) { $('paLan').checked = !$('paLan').checked; return; }
+  const r = await post('/api/phone-app', { lanAccess: $('paLan').checked }).then((x) => x.json()).catch(() => ({}));
+  if (r.restarting) { toast({ kind: 'buff', title: t('The tracker restarts…'), body: t('This page reloads in a few seconds.') }); setTimeout(() => location.reload(), 9000); }
+  else if (r.restartNeeded) toast({ kind: 'timer', title: t('Restart the tracker to apply this'), body: t('Tray icon → Restart tracker, or close and start it again.') });
+});
+$('paWhen').addEventListener('change', () => post('/api/phone-app', { sendWhen: $('paWhen').value }));
+$('paTest').onclick = async () => { await post('/api/phone-app', { action: 'test' }); toast({ kind: 'buff', title: t('Test sent to your phone') }); setTimeout(loadPhoneApp, 3000); };
+$('paCopy').onclick = async () => { try { await navigator.clipboard.writeText(paData?.code || ''); toast({ kind: 'buff', title: t('Pairing code copied') }); } catch { prompt(t('Pairing code'), paData?.code || ''); } };
+$('paReset').onclick = async () => { if (!confirm(t('Unpair all phones? They stop getting alerts; pair them again with the new code.'))) return; await post('/api/phone-app', { action: 'unpair' }); loadPhoneApp(); };
 // ---- sounds per alert type (public/sounds.js plays them; the choice is in the tracker's settings)
 let sndFiles = [], sndCfg = null;
 async function loadSounds() {
