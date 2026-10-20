@@ -14,17 +14,18 @@ import java.util.List;
 
 /**
  * What the phone knows about its PC, from the pairing QR code on the PC (Settings → Phone app):
- * sofapp://pair?d=BASE64URL({ v: 1, name, lan: ["http://192.168.1.5:7777"], key, ntfy: { server, topic }, repo })
+ * sofapp://pair?d=BASE64URL({ v: 1, name, lan: ["http://192.168.1.5:7777"], key, app, ntfy: { server, topic }, repo })
  *  - lan + key: the tracker on your home Wi-Fi (live view, synced with the PC)
+ *  - app: the token that lets this app change things like the PC itself (settings, watchlist, …); older codes have none
  *  - ntfy: the private relay topic the PC sends its alerts to (notifications anywhere)
  *  - repo: the GitHub repository with the app's releases (update check)
  */
 final class Pairing {
-    final String name, key, ntfyServer, topic, repo;
+    final String name, key, app, ntfyServer, topic, repo;
     final List<String> lan;
 
-    private Pairing(String name, List<String> lan, String key, String ntfyServer, String topic, String repo) {
-        this.name = name; this.lan = lan; this.key = key; this.ntfyServer = ntfyServer; this.topic = topic; this.repo = repo;
+    private Pairing(String name, List<String> lan, String key, String app, String ntfyServer, String topic, String repo) {
+        this.name = name; this.lan = lan; this.key = key; this.app = app; this.ntfyServer = ntfyServer; this.topic = topic; this.repo = repo;
     }
 
     /** from the pairing link or the code under the QR code; throws with a readable message */
@@ -41,8 +42,8 @@ final class Pairing {
         List<String> lan = new ArrayList<>();
         JSONArray a = o.optJSONArray("lan");
         if (a != null) for (int i = 0; i < a.length(); i++) { String u = a.optString(i); if (u.matches("http://[0-9.]+:\\d+")) lan.add(u); }
-        String key = o.optString("key", "");
-        return new Pairing(o.optString("name", "PC"), lan, key.matches("[A-Za-z0-9_-]{16,64}") ? key : "", server, topic, o.optString("repo", ""));
+        String key = o.optString("key", ""), app = o.optString("app", "");
+        return new Pairing(o.optString("name", "PC"), lan, key.matches("[A-Za-z0-9_-]{16,64}") ? key : "", app.matches("[A-Za-z0-9_-]{16,64}") ? app : "", server, topic, o.optString("repo", ""));
     }
 
     private static SharedPreferences prefs(Context c) { return c.getSharedPreferences("pairing", Context.MODE_PRIVATE); }

@@ -3,6 +3,8 @@
 
     <!-- the PC on your Wi-Fi (live view) and the ntfy relay (notifications anywhere) -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- downloads from the dashboard (backups, reports) into Downloads; only Android 8 and 9 need asking -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- showing the tracker's alerts, and staying connected for them in the background -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />

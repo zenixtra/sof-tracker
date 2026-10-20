@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.51.0
+
+- **The Android app shows the whole dashboard:** when the phone can reach your PC, the app opens the full dashboard, live and synced with the PC, and you can change everything there: settings, alerts, your watchlist, notes, map markers, backups.
+  - Only the paired app may change things (it carries its own token from the pairing code); the plain phone view in a browser still only watches. **Unpair all phones** takes the right away.
+  - Uploads (your own alert sounds, importing a setup) and downloads (backups, reports) work in the app.
+  - The ⋮ menu switches between the whole dashboard and the compact phone page.
+- **Away from home with Tailscale:** the tracker accepts Tailscale addresses (100.64.0.0/10) and puts the PC's Tailscale address in the pairing code, so the app reaches your PC from anywhere when Tailscale runs on both.
+- Phones paired with 1.50.0 show "watching only": pair them again to manage the tracker from them.
+
 ## 1.50.0
 
 - **SoF Tracker for Android:** a phone app, paired with your PC by a QR code (Settings → Phone app).

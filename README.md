@@ -39,7 +39,7 @@ Everything is installed for your Windows user only (`%LOCALAPPDATA%\SoF Tracker`
 
 ## Android app
 
-The **SoF Tracker app for Android** (Android 8 or newer) gets the tracker's alerts as notifications on your phone, also when you're away from home, and shows the live phone page when your phone is on the same Wi-Fi as your PC.
+The **SoF Tracker app for Android** (Android 8 or newer) gets the tracker's alerts as notifications on your phone, also when you're away from home. When your phone is on the same Wi-Fi as your PC, it shows the **whole dashboard**, live and synced with the PC: change settings, your watchlist, notes and alerts from the phone, as on the PC.
 
 1. On your phone, download **`SoF-Tracker-Android-<version>.apk`** from the [Releases page](../../releases/latest) and open it.
    - Android asks to allow installing apps from your browser or file manager: allow it for that app (the app isn't from the Play Store).
@@ -51,6 +51,10 @@ The **SoF Tracker app for Android** (Android 8 or newer) gets the tracker's aler
 5. Click **Send a test** on the PC: the phone shows a notification within a few seconds.
 
 **Send alerts: only while I'm away** sends alerts only when the game is closed or you're AFK. Urgent ones (danger, disconnect, whispers, party, updates) always go. **Unpair all phones** makes a new code: old phones stop getting alerts.
+
+**Away from home:** install [Tailscale](https://tailscale.com/download) (free) on the PC and the phone and sign in to both with the same account, then pair again (the QR code then holds the PC's Tailscale address too). Without it, away from home you get the notifications only.
+
+A few things stay on the PC itself: pairing phones, and the tray's own controls. The ⋮ menu in the app switches between the whole dashboard and the compact phone page.
 
 The app checks the Releases page once a day and shows **Update app** when there's a newer version.
 

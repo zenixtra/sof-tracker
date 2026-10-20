@@ -291,6 +291,8 @@
   .ident div { display: flex; flex-direction: column; }
   .ident label { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
   .ident span { font-weight: 600; }
+  /* on another device (the Android app, the phone view): what only works on the PC itself */
+  body.remote .pconly { display: none !important; }
   nav { display: flex; gap: 2px; margin-top: 12px; overflow-x: auto; scrollbar-width: none; }
   nav button { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; color: var(--muted); padding: 8px 14px; font-weight: 500; white-space: nowrap; }
   nav button:hover { color: var(--text); }

@@ -3543,7 +3543,9 @@ function lanUrls() {
   for (const list of Object.values(os.networkInterfaces())) {
     for (const i of list || []) if (i.family === 'IPv4' && !i.internal) out.push(`http://${i.address}:${PORT}`);
   }
-  return out;
+  // home network first; Tailscale (100.64.0.0/10) last, for the app away from home
+  const ts = (u) => (/^http:\/\/100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(u) ? 1 : 0);
+  return out.sort((a, b) => ts(a) - ts(b));
 }
 
 // ---------------------------------------------------------------- http server
@@ -3704,14 +3706,25 @@ const server = http.createServer(async (req, res) => {
   // only the tracker's own pages and programs on this PC (or a phone with the key): see lib/guard.js
   const g = guard.check(req, url, { port: PORT, lanMode: LAN_MODE, lanKey, pcNames: [os.hostname()] });
   if (!g.ok) { res.writeHead(g.status, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end(g.reason); }
-  if (g.setCookie) res.setHeader('Set-Cookie', g.setCookie);
+  // the paired Android app (the token in its pairing code, then a cookie) may do everything this PC may, except pairing
+  // more phones and the tray's own calls; the plain phone view (only the access key) keeps to watching. See lib/phoneapp.js
+  const appQ = url.searchParams.get('app'), appViaQuery = phoneApp.isApp(appQ);
+  const appOk = appViaQuery || phoneApp.isApp(guard.cookieValue(req.headers.cookie, 'sof_app'));
+  const cookies = [g.setCookie, appViaQuery ? `sof_app=${encodeURIComponent(appQ)}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Strict` : null].filter(Boolean);
+  if (cookies.length) res.setHeader('Set-Cookie', cookies);
+  const local = guard.isLoopbackAddr(req.socket.remoteAddress), trusted = local || appOk;
+  // a page opened with ?key= or ?app= (the phone, the app): the cookies are set now, so take them out of the address
+  if (req.method === 'GET' && STATIC[route] && (url.searchParams.has('key') || url.searchParams.has('app'))) {
+    url.searchParams.delete('key'); url.searchParams.delete('app');
+    res.writeHead(302, { Location: route + url.search, 'Cache-Control': 'no-store' }); return res.end();
+  }
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   try {
     // ---- updates: always reachable (also while blocked)
     if (route === '/api/update' && req.method === 'GET') return json(res, updateView());
-    if (route.startsWith('/api/update/') && req.method === 'POST' && !guard.isLoopbackAddr(req.socket.remoteAddress)) { res.writeHead(403); return res.end('Update from the PC running the tracker'); }
+    if (route.startsWith('/api/update/') && req.method === 'POST' && !trusted) { res.writeHead(403); return res.end('Update from the PC running the tracker'); }
     if (route === '/api/update/check' && req.method === 'POST') { await checkUpdates(); return json(res, updateView()); }
     if (route === '/api/update/install' && req.method === 'POST') {
       if (DEV_CHECKOUT) { res.writeHead(409); return res.end('This is a development copy (the project folder): update it with git, not the setup'); }
@@ -3760,7 +3773,7 @@ const server = http.createServer(async (req, res) => {
     if (route === '/api/level-forecast') return json(res, levelForecastView());
     // your setup in one file (Settings → Move or share your setup); PC only, tokens only when asked for
     if (route === '/api/setup-export' || route === '/api/setup-import') {
-      if (!/^(::1|127\.|::ffff:127\.)/.test(req.socket.remoteAddress || '')) { res.writeHead(403); return res.end('PC only'); }
+      if (!trusted) { res.writeHead(403); return res.end('PC only'); }
       if (route === '/api/setup-export') {
         const secrets = url.searchParams.get('secrets') === '1';
         const file = setup.exportSetup({ version: VERSION, settings, watchlist, threats, notes: playerNotes, waypoints, priceWatches, labels, checklist: checklist.data.items,
@@ -3826,7 +3839,7 @@ const server = http.createServer(async (req, res) => {
     // what the tracker keeps, and how much room it takes
     if (route === '/api/storage' && req.method === 'GET') return json(res, storageView());
     if (route === '/api/storage' && req.method === 'POST') {
-      if (!/^(::1|127\.|::ffff:127\.)/.test(req.socket.remoteAddress || '')) { res.writeHead(403); return res.end('PC only'); }
+      if (!trusted) { res.writeHead(403); return res.end('PC only'); }
       return json(res, clearStorage(JSON.parse(await readBody(req)).what));
     }
     // CSV exports of what the screen reader collected
@@ -3844,8 +3857,7 @@ const server = http.createServer(async (req, res) => {
     if (route === '/api/trader') return json(res, watch.traderProfile(String(url.searchParams.get('name') || '').slice(0, 40), marketOffers(), chatLog.entries));
     // the latest look at a game window (?pid= for another window): on this PC, or on the phone when allowed
     if (route === '/api/peek.jpg') {
-      const local = /^(::1|127\.|::ffff:127\.)/.test(req.socket.remoteAddress || '');
-      if (!local && !settings.peekLan) { res.writeHead(403); return res.end('Showing the game screen on other devices is off (Settings → Screen reader)'); }
+      if (!trusted && !settings.peekLan) { res.writeHead(403); return res.end('Showing the game screen on other devices is off (Settings → Screen reader)'); }
       const pid = +url.searchParams.get('pid'), dir = pid && altReaders.has(pid) ? altReaders.get(pid).ring : RING_DIR;
       const last = ringFrames(Date.now() - 60000, dir).pop();
       if (!last) { res.writeHead(404); return res.end('No recent look at the game'); }
@@ -3866,6 +3878,8 @@ const server = http.createServer(async (req, res) => {
       return json(res, { lang: L, speech: i18n.SPEECH[L] || 'en-US', strings: Object.fromEntries(keys.map((k) => [k, i18n.t(L, k)])) });
     }
     // phone mode: the addresses to open on a phone, with the access key (shown on this PC only)
+    // who is asking: this PC, the paired app (may change things) or the phone view (watching only)
+    if (route === '/api/client') return json(res, { local, app: appOk, manage: trusted });
     if (route === '/api/net') return json(res, { host: HOST, lan: LAN_MODE && guard.isLoopbackAddr(req.socket.remoteAddress) ? lanUrls().map((u) => `${u}/phone?key=${lanKey}`) : [] });
     if (route === '/api/player-notes') return json(res, playerNotes);
     if (route === '/api/profile') return json(res, playerProfile(String(url.searchParams.get('name') || '').slice(0, 40)));
@@ -4228,7 +4242,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (route === '/api/features') return json(res, { features: FEATURES.map((x) => ({ ...x, on: feat(x.id) })), alertMute: settings.alertMute || {}, alertCap: settings.alertCap || 0, quietFarming: !!settings.quietFarming });
     // debug captures and the debug bundle (a zip to send for tuning the readers): game pictures and logs, so this PC only
-    if ((route.startsWith('/api/debug') || route === '/api/pickup-learn') && !/^(::1|127\.|::ffff:127\.)/.test(req.socket.remoteAddress || '')) { res.writeHead(403); return res.end('PC only'); }
+    if ((route.startsWith('/api/debug') || route === '/api/pickup-learn') && !trusted) { res.writeHead(403); return res.end('PC only'); }
     if (route === '/api/debug' && req.method === 'GET') return json(res, { on: !!settings.debugCapture, captures: debugList() });
     if (route === '/api/debug' && req.method === 'POST') {
       const b = JSON.parse(await readBody(req));
@@ -4481,11 +4495,10 @@ const server = http.createServer(async (req, res) => {
       return res.end(buf);
     }
 
-    // everything below changes this PC, so it is only allowed from the PC itself (not the phone view)
-    const local = /^(::1|127\.|::ffff:127\.)/.test(req.socket.remoteAddress || '');
+    // everything below changes this PC, so it is only allowed from the PC itself or the paired app (not the phone view)
     const PC_ONLY = ['/api/launch', '/api/autostart', '/api/overlay', '/api/backup', '/api/settings', '/api/notify', '/api/notify/test',
       '/api/cleanup', '/api/update/install', '/api/update/publish', '/api/diagnostics', '/api/discord-bot', '/api/discord-bot/try', '/api/sounds', '/api/tidy'];
-    if (PC_ONLY.includes(route) && (req.method === 'POST' || ['/api/backup', '/api/notify', '/api/diagnostics', '/api/discord-bot', '/api/discord-bot/try'].includes(route)) && !local) {
+    if (PC_ONLY.includes(route) && (req.method === 'POST' || ['/api/backup', '/api/notify', '/api/diagnostics', '/api/discord-bot', '/api/discord-bot/try'].includes(route)) && !trusted) {
       res.writeHead(403); return res.end('This only works on the PC running the tracker');
     }
 

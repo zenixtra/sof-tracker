@@ -41,3 +41,20 @@ test('alerts go to the topic as JSON (emoji and any language intact), urgent one
   await new Promise((r) => setTimeout(r, 1300));
   assert.strictEqual(sent.length, 2);
 });
+
+test('the app token: in the pairing code with the phone view on, checked exactly, replaced by Unpair phones', () => {
+  const p = new PhoneApp({ read: () => null, save: () => {} });
+  const tok = p.pairing({ name: 'x', lan: ['http://192.168.1.5:7777'], key: 'k'.repeat(24) }).payload.app;
+  assert.match(tok, /^[\w-]{32}$/);
+  assert.ok(p.isApp(tok));
+  assert.ok(!p.isApp(tok.slice(1)) && !p.isApp(null) && !p.isApp('A'.repeat(32)));
+  assert.strictEqual(p.pairing({ name: 'x', lan: [], key: null }).payload.app, '');
+  p.reset();
+  assert.ok(!p.isApp(tok));
+});
+
+test('guard: Tailscale addresses count as private (the app away from home), public ones do not', () => {
+  const guard = require('../lib/guard');
+  assert.ok(guard.isPrivateIp('100.101.7.3') && guard.isPrivateIp('100.64.0.1') && guard.isPrivateIp('100.127.255.1'));
+  assert.ok(!guard.isPrivateIp('100.63.0.1') && !guard.isPrivateIp('100.128.0.1') && !guard.isPrivateIp('8.8.8.8'));
+});

@@ -25,7 +25,7 @@ Other players' names and chat lines are stored because they were on your screen.
 | Only if you pair the Android app | `ntfy.sh` | Every alert (title and text) goes to a private, random topic, and the paired phones read it from there. Only someone with your pairing code can read the topic. ntfy.sh keeps messages for about 12 hours. **Unpair all phones** makes a new topic. |
 | Only if you set it up | Your shared friends folder (OneDrive, Dropbox, …) | Your watchlist, danger flags, notes and markers, plus your live status and trade offers if you allowed them. |
 | Only if you open the 3D map | `cdn.jsdelivr.net` | Downloads the three.js library. |
-| Only if you switch on the phone view, or "Let my phone see the tracker on this Wi-Fi" | Devices on your home network | The dashboard. They need the access key shown on the PC (the paired app has it). |
+| Only if you switch on the phone view, or "Let my phone see the tracker on this Wi-Fi" | Devices on your home network (and your Tailscale network, if you use it) | The dashboard. They need the access key shown on the PC (the paired app has it). Only the paired app may also change settings and data. |
 
 ## Removing your data
 

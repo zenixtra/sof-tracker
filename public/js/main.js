@@ -184,6 +184,11 @@ getJSON('/api/net').then((n) => {
   $('lanBox').hidden = false;
   $('lanBox').innerHTML = `<b>${t('Phone view is on.')}</b> ${t('On a phone connected to the same Wi-Fi, open:')} ${n.lan.map((u) => `<span class="mono" style="color:var(--text)">${esc(u)}</span>`).join(' or ')}<br><span class="muted" style="font-size:12px">${t('The address holds a private access key: only give it to your own devices. Delete data\\lan-key.txt and restart to change it.')}</span>`;
 });
+// opened on another device: the paired Android app may change everything, the plain phone view only watches
+getJSON('/api/client').then((c) => {
+  document.body.classList.toggle('remote', !c.local);
+  document.body.classList.toggle('viewonly', !c.manage);
+}).catch(() => {});
 renderAlertSettings();
 applyView();
 startI18n();
