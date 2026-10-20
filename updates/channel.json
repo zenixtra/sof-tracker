@@ -1,10 +1,20 @@
 {
-  "sequence": 5,
-  "latest": "1.49.0",
+  "sequence": 6,
+  "latest": "1.50.0",
   "minimum": "1.45.0",
   "offlineGraceHours": 168,
   "message": "",
   "releases": [
+    {
+      "version": "1.50.0",
+      "url": "https://github.com/zenixtra/sof-tracker/releases/download/v1.50.0/SoF-Tracker-Setup-1.50.0.exe",
+      "sha256": "2e9c110a6016664aeaedab47b953c70a03e59ebe7d3baa8bfd5c267594dc36dd",
+      "size": 789504,
+      "mandatory": false,
+      "date": "2026-10-20",
+      "notes": "SoF Tracker 1.50.0: the Android app\n\n- SoF Tracker for Android: get the tracker's alerts as notifications on your phone, also away from home, and the live phone page on your home Wi-Fi. Pair it with Settings → Phone app (scan the QR code).\n- Option to send alerts only while you're away (game closed or AFK); urgent ones always go.\n- New switch \"Let my phone see the tracker on this Wi-Fi\" in Settings → Phone app.\n\nInstall the app: download SoF-Tracker-Android-1.50.0.apk below on your phone and open it.\n\nSHA-256 of SoF-Tracker-Setup-1.50.0.exe:\n2e9c110a6016664aeaedab47b953c70a03e59ebe7d3baa8bfd5c267594dc36dd\n\nSHA-256 of SoF-Tracker-Android-1.50.0.apk:\n317498ed2ad313f55718abadbf7e3262933e6292b417e96d4ad6f170839cda09",
+      "instructions": ""
+    },
     {
       "version": "1.49.0",
       "url": "https://github.com/zenixtra/sof-tracker/releases/download/v1.49.0/SoF-Tracker-Setup-1.49.0.exe",
@@ -57,5 +67,5 @@
     }
   ],
   "revoked": [],
-  "issuedAt": "2026-10-18T22:32:18.582Z"
+  "issuedAt": "2026-10-20T07:09:12.898Z"
 }
